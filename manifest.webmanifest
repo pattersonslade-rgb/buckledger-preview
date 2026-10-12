@@ -1,0 +1,18 @@
+{
+  "name": "Buck Ledger",
+  "short_name": "Buck Ledger",
+  "description": "A hunter's logbook that fills itself in from your SD card. No account, no subscription.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c2118",
+  "theme_color": "#1c2118",
+  "categories": ["sports", "lifestyle", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
