@@ -1636,6 +1636,10 @@
     if (!demo) window.BL_BUYER_INPUT = { box: S.t3.box, map: S.map, parking: (S.t3 && S.t3.parking) || [], day: (t3Day || new Date()).getTime() };
     var f = document.createElement('iframe'); f.className = 't3-port'; f.title = '3D terrain sim'; f.setAttribute('allow', 'web-share; clipboard-write');
     f.src = 'hbk3d/sim.html?' + (demo ? 'ex=1&day=oct05' : 'buyer=1'); el.appendChild(f);
+    // Slade's intro (Oct 12), outside the map, Example only. Sources = the data and published methods the sim actually runs on.
+    if (demo && !el.querySelector('.t3-intro')) { var intro = document.createElement('div'); intro.className = 't3-intro';
+      intro.innerHTML = '<p>One or all three of these hunting factors can make or break a hunt. Using case studies, real lidar ground from USGS 3DEP, USDA NAIP aerial imagery, Open-Meteo hourly weather, the EPA air-dispersion tables (EPA-454/R-99-005) and published wind and slope-air research (USDA Forest Service RMRS-GTR-266; Haiden &amp; Whiteman 2005; Briggs 1973), we demonstrate how the elements behave on the property we hunt to set ourselves up for the possibility of experiencing the best hunt of our life.</p><p class="tiny muted">Tap <b>More info</b> in the 3D view for the stand reasons, conditions and notes for the hour on screen.</p>';
+      el.insertBefore(intro, f); }
     // Full screen (Slade Oct 12): the same sim frame fills the phone; a slim bar on top closes it (phone Back closes it too). Nothing inside changes.
     el.classList.add('t3-host'); var fsb = document.createElement('button'); fsb.className = 'btn ink t3-fsbtn'; fsb.type = 'button'; fsb.textContent = 'Full screen'; el.insertBefore(fsb, f);
     var bar = document.createElement('div'); bar.className = 't3-fsbar'; bar.innerHTML = '<span>3D terrain</span><button class="btn ink" type="button">Close full screen</button>'; el.insertBefore(bar, f);

@@ -7,6 +7,7 @@
   var f = function (h) { return [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255]; };
   var SC = f(P.scent);
   window.BL_PORT = {
+    lean: !buyer && QS.get('lean') !== '0', // ?lean=0 = full Example (tests of the shared buyer layers). // Slade Oct 12: the Example is the lean preview (only Wind / Thermals / Scent, best + worst stand, words in Key + More info)
     anon: !buyer, tapLabels: false, noBucks: buyer ? 'No buck visits on this day' : null, palette: P, dataBase: buyer ? 'buyer:' : 'data/',
     scentRGB: function (a) { return [SC[0] + .25 * (1 - a) * (1 - SC[0]), SC[1] + .25 * (1 - a) * (1 - SC[1]), SC[2]]; },
     sinkRGB: f(P.thermalSink), riseRGB: f(P.thermalRise),
@@ -16,6 +17,15 @@
         o.cap = o.cap.replace(/\{(st|why|walk):(\w+)\}/g, function (_, k, id) { return '{' + k + ':' + (MAP[id] || id) + '}'; }).replace(/^Oct \d+ /, ''); o.cap = o.cap.charAt(0).toUpperCase() + o.cap.slice(1); return o; }); });
       return out; },
     keyPatch: function (K) {
+      if (!buyer) { // lean Example legend: only what's on the map
+        K.splice(0, K.length,
+          [null, hex(P.standGood), 'Stand: green = best stand this hour (the box stand on the map)'],
+          [null, hex(P.standAvoid), 'Stand: red = worst stand this hour (More info says why)'],
+          [null, 'linear-gradient(90deg,rgba(255,255,255,.15),#fff)', 'Wind: white arrows and moving streaks show direction and strength'],
+          [null, hex(P.thermalSink), 'Thermals sinking: blue = cold air sliding downhill and pooling'],
+          [null, hex(P.thermalRise), 'Thermals rising: rose pink = warm air lifting after sunup'],
+          [null, 'linear-gradient(90deg,' + hex(P.scent) + ',#c9b2ff)', 'Scent: violet cone and puffs = your scent drifting off the stand']);
+        return; }
       K[0][1] = 'linear-gradient(90deg,' + hex(P.standGood) + ' 0 33%,' + hex(P.standCaution) + ' 33% 66%,' + hex(P.standAvoid) + ' 66%)'; K[0][2] = 'Stands: teal = good, amber = careful, crimson = stay out (your scent vs the beds and buck routes, this hour). Tap a stand for its reason';
       K[1][1] = 'linear-gradient(90deg,' + hex(P.walkIn) + ',#fff)'; K[1][2] = 'Safest walk-in to the best stand (moving dots = you walking in). Crimson = every walk-in leaks scent into a bed';
       K[4][1] = 'linear-gradient(90deg,' + hex(P.thermalSink) + ',' + hex(P.thermalRise) + ')'; K[4][2] = 'Air at the ground and vapor: blue = cold air sinking, sliding downhill & pooling; rose pink = warm air rising after sunup';
@@ -35,6 +45,7 @@
   go.then(function () {
     var S = window.HBK_STATIC.sources || {};
     window.BL_PORT.keyNote = 'Everything moves on real data: Open-Meteo hourly weather run through the wind, thermal and scent model, USGS lidar ground (' + (S.dem || 'USGS 3DEP') + '), aerial imagery (' + (S.naip || 'USDA NAIP via USGS') + ') and camera visits shown only as marks and routes (no pictures here). Time of day shows as sun and moon; temperature as the warm or cool tint; pressure as how heavy and hazy the air looks. Guessed route stretches are dotted. Oak areas are modelled from public forest data except the planted oaks the owner confirmed. Field Tips: tap any ground for a sourced tip.';
+    if (!buyer) window.BL_PORT.keyNote = window.BL_PORT.keyNote.replace(' and camera visits shown only as marks and routes (no pictures here)', ' and camera visits shown only as marks (no pictures here)').replace(/ ?Guessed route stretches are dotted\./, '').replace(/ ?Field Tips: tap any ground for a sourced tip\.?/, ''); // lean Example: no routes or tap tips on the map
     return load('app.bundle.js');
   }).catch(function (e) { var l = document.getElementById('loading'); if (l) l.textContent = 'Could not load the 3D ground. ' + (e && e.message || ''); });
 })();
