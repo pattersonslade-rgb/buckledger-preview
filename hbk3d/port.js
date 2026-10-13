@@ -21,17 +21,18 @@
         K.splice(0, K.length,
           [null, hex(P.standGood), 'Stand: green = best stand this hour (the box stand on the map)'],
           [null, hex(P.standAvoid), 'Stand: red = worst stand this hour (More info says why)'],
-          [null, 'linear-gradient(90deg,rgba(255,255,255,.15),#fff)', 'Wind: white arrows and moving streaks show direction and strength'],
+          [null, 'linear-gradient(90deg,#ffffff 0 45%,#ffe9a0 45%)', 'Wind: the white arrow points where the wind blows (tag = from-direction and mph, Open-Meteo); champagne streaks glide with it'],
           [null, hex(P.thermalSink), 'Thermals sinking: blue = cold air sliding downhill and pooling'],
           [null, hex(P.thermalRise), 'Thermals rising: rose pink = warm air lifting after sunup'],
           [null, 'linear-gradient(90deg,' + hex(P.scent) + ',#c9b2ff)', 'Scent: violet cone and puffs = your scent drifting off the stand']);
         return; }
       K[0][1] = 'linear-gradient(90deg,' + hex(P.standGood) + ' 0 33%,' + hex(P.standCaution) + ' 33% 66%,' + hex(P.standAvoid) + ' 66%)'; K[0][2] = 'Stands: teal = good, amber = careful, crimson = stay out (your scent vs the beds and buck routes, this hour). Tap a stand for its reason';
       K[1][1] = 'linear-gradient(90deg,' + hex(P.walkIn) + ',#fff)'; K[1][2] = 'Safest walk-in to the best stand (moving dots = you walking in). Crimson = every walk-in leaks scent into a bed';
+      K[2] = [null, 'linear-gradient(90deg,#ffffff 0 45%,#ffe9a0 45%)', 'Wind: the white arrow points where the wind blows (tag = from-direction and mph, Open-Meteo); champagne streaks glide with it']; // Slade Oct 13
       K[4][1] = 'linear-gradient(90deg,' + hex(P.thermalSink) + ',' + hex(P.thermalRise) + ')'; K[4][2] = 'Air at the ground and vapor: blue = cold air sinking, sliding downhill & pooling; rose pink = warm air rising after sunup';
       K[5][1] = 'linear-gradient(90deg,' + hex(P.scent) + ',#c9b2ff)'; K[5][2] = 'Your scent: violet cones reach downwind off each stand; violet puffs = the engine scent paths';
       K[6][2] = 'Buck routes: yellow hoof prints walk each route · solid glow = backed by camera visits · dotted = guess';
-      K[10][1] = hex(P.bedding);
+      K[10][1] = hex(P.bedding); K.splice(3, 1); // the old flowing lines are replaced by the Wind streaks (Slade Oct 13)
     },
     keyNote: null,
     views: buyer ? function (W, H, F) { // the original six views, aimed at the same kinds of places on the buyer's ground
