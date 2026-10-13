@@ -45,7 +45,7 @@
   go.then(function () {
     var S = window.HBK_STATIC.sources || {};
     window.BL_PORT.keyNote = 'Everything moves on real data: Open-Meteo hourly weather run through the wind, thermal and scent model, USGS lidar ground (' + (S.dem || 'USGS 3DEP') + '), aerial imagery (' + (S.naip || 'USDA NAIP via USGS') + ') and camera visits shown only as marks and routes (no pictures here). Time of day shows as sun and moon; temperature as the warm or cool tint; pressure as how heavy and hazy the air looks. Guessed route stretches are dotted. Oak areas are modelled from public forest data except the planted oaks the owner confirmed. Field Tips: tap any ground for a sourced tip.';
-    if (!buyer) window.BL_PORT.keyNote = window.BL_PORT.keyNote.replace(' and camera visits shown only as marks and routes (no pictures here)', ' and camera visits shown only as marks (no pictures here)').replace(/ ?Guessed route stretches are dotted\./, '').replace(/ ?Field Tips: tap any ground for a sourced tip\.?/, ''); // lean Example: no routes or tap tips on the map
+    if (!buyer) window.BL_PORT.keyNote = window.BL_PORT.keyNote.replace(' and camera visits shown only as marks and routes (no pictures here)', ' (no camera pictures here)').replace(/ ?Oak areas are modelled from public forest data except the planted oaks the owner confirmed\./, '').replace(/ ?Guessed route stretches are dotted\./, '').replace(/ ?Field Tips: tap any ground for a sourced tip\.?/, ''); // lean Example: no routes or tap tips on the map
     return load('app.bundle.js');
   }).catch(function (e) { var l = document.getElementById('loading'); if (l) l.textContent = 'Could not load the 3D ground. ' + (e && e.message || ''); });
 })();
