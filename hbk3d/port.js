@@ -3,14 +3,14 @@
 (function () {
   var QS = new URLSearchParams(location.search), buyer = QS.get('buyer') === '1';
   var hex = function (h) { return '#' + ('00000' + h.toString(16)).slice(-6); };
-  var P = { standGood: 0x00bfa5, standCaution: 0xff8a00, standAvoid: 0xa0001e, hoof: 0xffd23f, scent: 0x9c6bff, thermalSink: 0x7fd4ff, thermalRise: 0xff80ab, bedding: 0x2e7d32, beddingMark: 0x6d4c41, food: 0xc8a26a, boundary: 0xff5252, walkIn: 0xc6ff00 };
+  var P = { standGood: 0x00bfa5, standCaution: 0xff8a00, standAvoid: 0xa0001e, hoof: 0xffd23f, scent: 0x9c6bff, thermalSink: 0x2ec8ff, thermalRise: 0xff3d9e, bedding: 0x2e7d32, beddingMark: 0x6d4c41, food: 0xc8a26a, boundary: 0xff5252, walkIn: 0xc6ff00 };
   var f = function (h) { return [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255]; };
   var SC = f(P.scent);
   window.BL_PORT = {
     lean: !buyer && QS.get('lean') !== '0', // ?lean=0 = full Example (tests of the shared buyer layers). // Slade Oct 12: the Example is the lean preview (only Wind / Thermals / Scent, best + worst stand, words in Key + More info)
     anon: !buyer, tapLabels: false, noBucks: buyer ? 'No buck visits on this day' : null, palette: P, dataBase: buyer ? 'buyer:' : 'data/',
     scentRGB: function (a) { return [SC[0] + .25 * (1 - a) * (1 - SC[0]), SC[1] + .25 * (1 - a) * (1 - SC[1]), SC[2]]; },
-    sinkRGB: f(P.thermalSink), riseRGB: f(P.thermalRise),
+    sinkRGB: f(P.thermalSink), riseRGB: f(P.thermalRise), thermAlpha: 1.6,
     tours: function (T) { // same tour segments; the Example's stands replace the old ones nearest to them; no numbers in captions
       var MAP = { eastface: 'south', gasline: 'east' }, out = {};
       Object.keys(T).forEach(function (d) { out[d] = T[d].map(function (s) { var o = Object.assign({}, s); if (o.feat) o.feat = MAP[o.feat] || o.feat;
@@ -21,7 +21,7 @@
         K.splice(0, K.length,
           [null, hex(P.standGood), 'Stand: green = best stand this hour (the box stand on the map)'],
           [null, hex(P.standAvoid), 'Stand: red = worst stand this hour (More info says why)'],
-          [null, 'linear-gradient(90deg,#ffffff 0 45%,#ffe9a0 45%)', 'Wind: the white arrow points where the wind blows (tag = from-direction and mph, Open-Meteo); champagne streaks glide with it'],
+          [null, 'linear-gradient(90deg,rgba(255,233,160,.15),#ffe9a0)', 'Wind: soft gold streaks glide across the map in the direction the wind blows (Open-Meteo hourly wind)'],
           [null, hex(P.thermalSink), 'Thermals sinking: blue = cold air sliding downhill and pooling'],
           [null, hex(P.thermalRise), 'Thermals rising: rose pink = warm air lifting after sunup'],
           [null, 'linear-gradient(90deg,' + hex(P.scent) + ',#c9b2ff)', 'Scent: violet cone and puffs = your scent drifting off the stand']);
