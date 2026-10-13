@@ -1636,8 +1636,16 @@
     if (!demo) window.BL_BUYER_INPUT = { box: S.t3.box, map: S.map, parking: (S.t3 && S.t3.parking) || [], day: (t3Day || new Date()).getTime() };
     var f = document.createElement('iframe'); f.className = 't3-port'; f.title = '3D terrain sim'; f.setAttribute('allow', 'web-share; clipboard-write');
     f.src = 'hbk3d/sim.html?' + (demo ? 'ex=1&day=oct05' : 'buyer=1'); el.appendChild(f);
+    // Full screen (Slade Oct 12): the same sim frame fills the phone; a slim bar on top closes it (phone Back closes it too). Nothing inside changes.
+    el.classList.add('t3-host'); var fsb = document.createElement('button'); fsb.className = 'btn ink t3-fsbtn'; fsb.type = 'button'; fsb.textContent = 'Full screen'; el.insertBefore(fsb, f);
+    var bar = document.createElement('div'); bar.className = 't3-fsbar'; bar.innerHTML = '<span>3D terrain</span><button class="btn ink" type="button">Close full screen</button>'; el.insertBefore(bar, f);
+    function fsSet(on, fromPop) { if (on === el.classList.contains('t3-full')) return; el.classList.toggle('t3-full', on); document.documentElement.classList.toggle('t3-noscroll', on);
+      if (on && !fromPop) history.pushState({ t3full: 1 }, ''); if (!on && !fromPop && history.state && history.state.t3full) history.back(); }
+    fsb.onclick = function () { fsSet(true); }; bar.querySelector('button').onclick = function () { fsSet(false); };
+    window.addEventListener('popstate', function () { if (el.classList.contains('t3-full')) fsSet(false, true); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fsSet(false); });
     var api = function () { try { return f.contentWindow && f.contentWindow.__ready && f.contentWindow.__BL; } catch (e) { return null; } };
-    return { destroy: function () { f.remove(); }, refresh: function () { if (!demo && f.contentWindow) f.contentWindow.location.reload(); }, frame: f,
+    return { fullscreen: function (on) { fsSet(on !== false); }, isFull: function () { return el.classList.contains('t3-full'); }, destroy: function () { fsSet(false); f.remove(); }, refresh: function () { if (!demo && f.contentWindow) f.contentWindow.location.reload(); }, frame: f,
       ready: function () { return !!api(); }, state: function () { var a = api(); return a ? a.state() : null; }, setHour: function (h) { var a = api(); if (a) a.setClock(h); }, gl: function () { return api(); },
       renderMs: function () { var a = api(); return a ? a.renderMs() : null; }, setSel: function (i) { var a = api(); return a ? a.setSel(i) : null; } };
   }

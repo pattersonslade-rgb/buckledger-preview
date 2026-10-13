@@ -196,3 +196,12 @@ body.full #toast{bottom:auto;top:calc(56px + var(--safe-t))}
 
 /* 3D view: the ported original sim in its own frame (phone-tall, same look as the original) */
 .t3-port{display:block;width:100%;height:min(86vh,900px);border:0;border-radius:14px;background:#0b1118}
+
+/* 3D view full screen (Slade Oct 12): fills the phone above everything, incl. the tab bar; slim close bar on top */
+.t3-fsbtn{margin:0 0 8px}
+.t3-fsbar{display:none}
+.t3-host.t3-full{position:fixed;inset:0;z-index:9999;background:#0b1118;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 0}
+.t3-host.t3-full .t3-fsbtn{display:none}
+.t3-host.t3-full .t3-fsbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;color:#e8ecef;font-weight:700;flex:0 0 auto}
+.t3-host.t3-full .t3-port{flex:1 1 auto;height:auto;min-height:0;border-radius:0}
+html.t3-noscroll,html.t3-noscroll body{overflow:hidden}
