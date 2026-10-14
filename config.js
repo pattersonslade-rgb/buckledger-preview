@@ -10,7 +10,7 @@
  *                   that already holds a valid Pro key; both keys are re-checked with Gumroad.
  *
  * Option A is live: product 4n-1sk-GKau8qkWiclOoIQ== (mfuuir). Option B ids stay empty.
- *   While empty, the app runs in Free mode and the buy buttons say "coming soon". Nothing breaks.
+ *   While empty, the app runs in Free mode and no buy buttons are shown. Nothing breaks.
  *
  * OPTION A (recommended): ONE Gumroad product with three versions named exactly
  *   "Pro" ($30), "Elite" ($50), "Elite Upgrade" ($20), with "Generate a unique license key per sale" on.
