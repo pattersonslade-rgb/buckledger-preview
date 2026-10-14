@@ -2010,13 +2010,7 @@
   }
   var readyResolve; var ready = new Promise(function (r) { readyResolve = r; });
   if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
-    window.addEventListener('load', function () {
-      var had = !!navigator.serviceWorker.controller, reloaded = false;
-      navigator.serviceWorker.addEventListener('controllerchange', function () { if (had && !reloaded) { reloaded = true; location.reload(); } }); // a new version took over: show it now, not on the next visit
-      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
-        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
-      }).catch(function () {});
-    });
+    window.addEventListener('load', function () { /* PREVIEW BUILD: no service worker */ if (navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { if (r.scope.indexOf('/buckledger-preview/') >= 0) r.unregister(); }); }); });
   }
   window.BuckLedger = {
     ready: ready, state: function () { return S; }, photos: function () { return P; },
