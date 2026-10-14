@@ -33,15 +33,15 @@ window.BUCKLEDGER_CONFIG = {
 
   // Option A: one product with versions "Pro", "Elite", "Elite Upgrade"
   GUMROAD_PRODUCT_ID: "4n-1sk-GKau8qkWiclOoIQ==", // Buck Ledger (permalink mfuuir), confirmed on the live Gumroad page
-  CHECKOUT_URL: "https://sladepatterson.gumroad.com/l/mfuuir",
+  CHECKOUT_URL: "https://pocketappstudio.gumroad.com/l/mfuuir",
 
   // Option B (fallback): separate products. Leave empty if you use Option A.
   PRO_PRODUCT_ID: "",            // <<< not set
   ELITE_PRODUCT_ID: "",          // <<< not set
   UPGRADE_PRODUCT_ID: "",        // <<< not set
-  PRO_CHECKOUT_URL: "https://sladepatterson.gumroad.com/l/mfuuir?option=I6o9eu1FCWosy08bqXWHMw%3D%3D",     // preselects version "Pro"
-  ELITE_CHECKOUT_URL: "https://sladepatterson.gumroad.com/l/mfuuir?option=Nvn3BmaqeQ7cwvslu8_YWQ%3D%3D",   // preselects version "Elite"
-  UPGRADE_CHECKOUT_URL: "https://sladepatterson.gumroad.com/l/mfuuir?option=GUKWGkahR2DNUluPySooYg%3D%3D", // preselects version "Elite Upgrade"
+  PRO_CHECKOUT_URL: "https://pocketappstudio.gumroad.com/l/mfuuir?option=I6o9eu1FCWosy08bqXWHMw%3D%3D",     // preselects version "Pro"
+  ELITE_CHECKOUT_URL: "https://pocketappstudio.gumroad.com/l/mfuuir?option=Nvn3BmaqeQ7cwvslu8_YWQ%3D%3D",   // preselects version "Elite"
+  UPGRADE_CHECKOUT_URL: "https://pocketappstudio.gumroad.com/l/mfuuir?option=GUKWGkahR2DNUluPySooYg%3D%3D", // preselects version "Elite Upgrade"
 
   LICENSE_VERIFY_URL: "https://api.gumroad.com/v2/licenses/verify", // Gumroad allows browser (CORS) calls
   MAX_ACTIVATIONS: 5,

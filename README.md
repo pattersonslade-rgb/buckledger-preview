@@ -2,7 +2,7 @@
 
 A hunter's trail cam logbook that fills itself in from your SD card. Phone web app (PWA): no account, no subscription, and photos never leave the phone.
 
-Live: https://pattersonslade-rgb.github.io/buckledger/
+Live: https://pocketappstudio.github.io/buckledger/
 
 Tiers (one-time, via Gumroad): Free (1 camera, 1 named buck, 1 prediction) · Pro $30 (3 / 3, 3 open predictions) · Elite $50 (unlimited + 3D Terrain Sim) · Elite Upgrade $20 for Pro owners.
 
