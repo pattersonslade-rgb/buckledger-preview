@@ -447,7 +447,7 @@
       el.querySelector('.t3-when').textContent = hourWord(d);
       el.querySelector('.t3-phase').textContent = PHASE_WORD[M.phase];
       el.querySelector('.t3-air').innerHTML = host.airNote ? host.airNote(d) : '';
-      el.querySelector('.t3-stands').innerHTML = M.stands.length ? M.stands.map(function (s2, k) { return '<button class="t3-st ' + s2.color + (k === sel ? ' on' : '') + '" data-t3st="' + k + '"><i></i>' + esc(s2.name) + '</button>'; }).join('') : '<p class="small muted">No stands yet. Add them in the 2D map editor.</p>';
+      el.querySelector('.t3-stands').innerHTML = M.stands.length ? M.stands.map(function (s2, k) { return '<button class="t3-st ' + s2.color + (k === sel ? ' on' : '') + '" data-t3st="' + k + '"><i></i>' + esc(s2.name) + '</button>'; }).join('') : '<p class="small muted">No stands yet. Add them on your Property map.</p>';
       el.querySelector('.t3-why').innerHTML = s ? reasons(T, M, s, W).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') : '';
       bufKey = ''; seed(); pushGL();
     }
