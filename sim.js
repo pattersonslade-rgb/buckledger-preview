@@ -1,8 +1,5 @@
-/* Buck Ledger Movement Simulator, 2D (Elite).
- * Rebuilt Oct 12, 2026 on the same engine as the 3D Terrain Sim (terrain.js, BLTerrain), shown from straight above:
- * wind + slope air, scent with the wind's wavering spread, deer routes computed in the phone from YOUR bedding and food
- * marks, stands green / yellow / red with plain reasons, and the safest walk-in. No numbers, no graphs, no photos.
- * This file keeps the property map: the example property, the editor, and cleaning of saved maps. */
+/* Buck Ledger property map (Elite): the editor where the buyer marks bedding, food, stands and cameras for the 3D Terrain Sim,
+ * plus cleaning of saved maps. (Slade Oct 14, 2026: map editor only.) */
 (function () {
   'use strict';
   var COLS = 20, ROWS = 26, N = COLS * ROWS;
@@ -22,16 +19,6 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function num(v, lo, hi, d) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; }
 
-  /* ---------- example property: a real layout with every identifier removed (relative heights only, mirrored, renamed) ---------- */
-  function example() {
-    var E = window.BL_EXAMPLE || {};
-    return {
-      v: 1, name: 'Example property', example: true, acres: E.acres || 240, cols: COLS, rows: ROWS, cells: E.cells || new Array(N + 1).join('.'),
-      stands: (E.stands || []).map(function (s) { return { x: s.x, y: s.y, name: s.name }; }),
-      cams: (E.cams || []).map(function (c) { return { x: c.x, y: c.y, cam: '' }; })
-    };
-  }
-  function exampleParking() { return ((window.BL_EXAMPLE || {}).parking || []).map(function (p) { return { x: p.x, y: p.y }; }); }
   function blank() { var c = ''; for (var i = 0; i < N; i++) c += '.'; return { v: 1, name: 'My property', example: false, acres: 80, cols: COLS, rows: ROWS, cells: c, stands: [], cams: [] }; }
   // Sanitize anything that comes from storage or a backup file.
   function clean(m) {
@@ -68,22 +55,12 @@
   function mount(root, host) {
     host = host || {};
     if (!document.getElementById('bsim-css')) { var st = document.createElement('style'); st.id = 'bsim-css'; st.textContent = CSS; document.head.appendChild(st); }
-    var map = clean(host.getMap && host.getMap()) || example();
-    var mode = 'sim', tool = 'B', brush = 1, camPick = '', undo = [], dead = false, canvas = null, ctx = null, cw = 0, eng = null;
+    var map = clean(host.getMap && host.getMap()) || blank();
+    var mode = 'edit', tool = 'B', brush = 1, camPick = '', undo = [], dead = false, canvas = null, ctx = null, cw = 0, eng = null;
     function saveMap() { if (host.saveMap) host.saveMap(map); }
     function shell() {
       if (eng) { eng.destroy(); eng = null; }
-      root.innerHTML = '<div class="bsim" id="bsim"><div class="bs-tabs"><button class="bs-tab" data-bs="mode-sim">Simulate</button><button class="bs-tab" data-bs="mode-edit">Edit map</button></div>' +
-        (map.example ? '<div class="bs-flag" id="bs-example">Showing the <b>Example property</b> (not your land). Tap <b>Edit map</b> to draw yours.</div>' : '') +
-        (mode === 'sim' ? '<div id="bs-engine"></div><p class="bs-note" id="bs-model">This is a model, not a forecast. Wind spread, scent spread and slope air come from published air-flow methods; deer routes come from your own bedding and food marks.</p>'
-          : '<div class="bs-wrap"><div><canvas id="bs-canvas" aria-label="Property map"></canvas><div class="bs-legend" id="bs-legend"></div></div><div id="bs-side"></div></div>') + '</div>';
-      Array.prototype.forEach.call(root.querySelectorAll('.bs-tab'), function (b) { b.classList.toggle('on', b.getAttribute('data-bs') === 'mode-' + mode); });
-      if (mode === 'sim') {
-        canvas = null; ctx = null;
-        var el = root.querySelector('#bs-engine');
-        if (window.BLTerrain && host.engineHost) eng = window.BLTerrain.mount(el, host.engineHost(map, map.example ? exampleParking() : null));
-        return;
-      }
+      root.innerHTML = '<div class="bsim" id="bsim"><div class="bs-wrap"><div><canvas id="bs-canvas" aria-label="Property map"></canvas><div class="bs-legend" id="bs-legend"></div></div><div id="bs-side"></div></div></div>';
       root.querySelector('#bsim').classList.add('editing');
       canvas = root.querySelector('#bs-canvas'); ctx = canvas.getContext('2d');
       canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', onUp);
@@ -106,7 +83,7 @@
         '<p class="bs-note">Tap or drag on the map to paint. ' + (host.cameras ? 'Stand / Camera' : 'Stand') + ': tap to place, tap again to remove. North is up.' + (host.cameras ? ' Routes are drawn solid where they pass a square with one of your cameras.' : '') + '</p></div>' +
         '<div class="bs-card"><label class="bs-lab"><span>Property name</span></label><input class="bs-in" id="bs-name" maxlength="60" value="' + esc(map.name) + '">' +
         '<label class="bs-lab" style="margin-top:8px"><span>Acres (sets the scale)</span><b id="bs-scale">' + scaleText() + '</b></label><input class="bs-in" id="bs-acres" type="number" min="1" max="100000" value="' + map.acres + '">' +
-        '<div class="bs-seg" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px"><button data-bs="undo">↶ Undo</button><button data-bs="clear">Blank map</button><button data-bs="example">Example</button></div>' +
+        '<div class="bs-seg" style="grid-template-columns:1fr 1fr;margin-top:10px"><button data-bs="undo">↶ Undo</button><button data-bs="clear">Blank map</button></div>' +
         '<p class="bs-note">Saved on this phone automatically, and included in your Buck Ledger backup file.</p></div>';
     }
     function scaleText() { var sq = map.acres / N, side = Math.sqrt(map.acres * 43560 / N); return 'each square ≈ ' + (sq < 1 ? sq.toFixed(2) : sq.toFixed(1)) + ' ac (' + Math.round(side) + ' ft)'; }
@@ -160,12 +137,10 @@
     function onClick(e) {
       var b = e.target.closest('[data-bs]'); if (!b || !root.contains(b)) return;
       var a = b.getAttribute('data-bs'), kv = a.split(':'), k = kv[0], v = kv[1];
-      if (a === 'mode-sim' || a === 'mode-edit') { mode = a === 'mode-sim' ? 'sim' : 'edit'; shell(); return; }
       if (k === 'tool') { tool = v; side(); return; }
       if (k === 'brush') { brush = Number(v); side(); return; }
       if (a === 'undo') { var u = undo.pop(); if (u) { var old = clean(JSON.parse(u)); if (old) { map.cells = old.cells; map.stands = old.stands; map.cams = old.cams; } saveMap(); shell(); } return; }
       if (a === 'clear') { pushUndo(); var nm = map.example ? 'My property' : map.name, ac = map.example ? 80 : map.acres; map = blank(); map.name = nm; map.acres = ac; saveMap(); shell(); return; }
-      if (a === 'example') { pushUndo(); map = example(); saveMap(); shell(); return; }
     }
     function onResize() { if (!canvas) return; size(); draw(); }
     function destroy() { dead = true; if (eng) { eng.destroy(); eng = null; } root.removeEventListener('click', onClick); window.removeEventListener('resize', onResize); }
@@ -175,10 +150,10 @@
     var api = {
       destroy: destroy, getMap: function () { return JSON.parse(JSON.stringify(map)); },
       engine: function () { return eng; },
-      state: function () { var e = eng && eng.state(); return { mode: mode, tool: tool, example: !!map.example, engine: e, stands: e ? e.stands : [], why: e ? e.why : [] }; }
+      state: function () { return { mode: mode, tool: tool, example: !!map.example, stands: map.stands.slice() }; }
     };
     root.__bsim = api;
     return api;
   }
-  window.BuckSim = { mount: mount, example: example, exampleParking: exampleParking, blank: blank, clean: clean, ZONES: ZONES, COLS: COLS, ROWS: ROWS };
+  window.BuckSim = { mount: mount, blank: blank, clean: clean, ZONES: ZONES, COLS: COLS, ROWS: ROWS };
 })();

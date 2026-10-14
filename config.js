@@ -3,7 +3,7 @@
  * TIERS (all one-time purchases on Gumroad, no subscription):
  *   Free  : FREE_CAMERA_LIMIT cameras, FREE_BUCK_LIMIT named bucks, FREE_PRED_LIMIT prediction (+ its scored result)
  *   Pro   : PRO_CAMERA_LIMIT cameras, PRO_BUCK_LIMIT named bucks, PRO_OPEN_PRED_LIMIT open predictions at a time  (PRO_PRICE)
- *   Elite : unlimited cameras, bucks + predictions, plus the 2D Movement Simulator and the 3D Terrain Sim     (ELITE_PRICE)
+ *   Elite : unlimited cameras, bucks + predictions, plus the 3D Terrain Sim     (ELITE_PRICE)
  *   Every tier: state rut/acorn research, sun + moon per visit, weather per visit, ribbon temp, headings, bait log,
  *               points + small-buck filter, rename history, profile photo, companions, buck ID suggestions, 3D demo.
  *   Elite Upgrade : Pro owners pay the difference (UPGRADE_PRICE). Its key only unlocks Elite on a phone

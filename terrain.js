@@ -14,7 +14,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   /* ---------- 3DEP: box, URL, TIFF ---------- */
-  // box: { lat, lng, acres } -> bbox around the centre, aspect = 2D map (20 wide x 26 tall), north up
+  // box: { lat, lng, acres } -> bbox around the centre, aspect = property map (20 wide x 26 tall), north up
   // Elevation and aerial photo are both requested in Web Mercator (EPSG:3857) for the SAME box. In 3857 a ground box with the
   // map's shape keeps square pixels, so the USGS servers return exactly the box asked for (in lat/long degrees they widen it
   // to keep pixels square, which would shift things). The box is sized in true ground metres at the property's latitude.
@@ -245,7 +245,7 @@
   // Active deer areas by phase (MSU P3927, direction only): night = food + routes; sunrise / sunset hour = bedding, routes,
   // food; daylight = bedding + routes (bedded most by day; "bucks move every day, and they move during daylight hours").
   var ACTIVE = { night: { F: 1, R: 1 }, morning: { B: 1, F: 1, R: 1 }, midday: { B: 1, R: 1 }, evening: { B: 1, F: 1, R: 1 } };
-  function comps(map, ch) {   // connected groups of one zone on the 2D map (in map cells)
+  function comps(map, ch) {   // connected groups of one zone on the property map (in map cells)
     var seen = {}, out = [];
     for (var i = 0; i < COLS * ROWS; i++) {
       if (map.cells[i] !== ch || seen[i]) continue;
@@ -383,7 +383,7 @@
     var flat = !!host.flat, T = null, view = flat ? { yaw: 0, pitch: Math.PI / 2 } : { yaw: -0.5, pitch: 0.95 }, hour = host.hour == null ? 17 : host.hour, day = host.day || new Date(), sel = 0, M = null, W = null, raf = 0, parts = [], dead = false, buf = null, bufKey = '';
     var demo = !!host.demo;
     el.innerHTML = '<div class="t3">' + (demo ? '<div class="t3-demo">Example property. Not your land.</div>' : '') +
-      '<div class="t3-stage"><canvas class="t3-cv" aria-label="' + (flat ? '2D map view' : '3D terrain view') + '"></canvas><div class="t3-phase" aria-live="polite"></div></div>' +
+      '<div class="t3-stage"><canvas class="t3-cv" aria-label="' + (flat ? 'Map view' : '3D terrain view') + '"></canvas><div class="t3-phase" aria-live="polite"></div></div>' +
       '<div class="t3-ctl"><label class="t3-scrub"><span class="t3-when"></span><input type="range" min="0" max="23" step="1" class="t3-hour" aria-label="Time of day"></label>' +
       '<div class="t3-row">' + (demo ? '' : '<label class="field t3-day"><span>Day</span><input type="date" class="t3-date"></label>') +
       (flat ? '' : '<button class="btn sm ink" data-t3="turn">Turn</button><button class="btn sm ink" data-t3="top">Top view</button>') + '</div>' +

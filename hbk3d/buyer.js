@@ -66,7 +66,7 @@
       for (i = 0; i < 512; i++) for (j = 0; j < 512; j++) { var x = (j + .5) / 512 * W, y = (i + .5) / 512 * H, di = Math.min(dny - 1, (y / st) | 0), dj = Math.min(dnx - 1, (x / st) | 0), dk = di * dnx + dj;
         var depth = fill[dk] - hh[dk], v = Math.min(1, depth / 0.5) * 255; var o = (i * 512 + j) * 4; id.data[o] = id.data[o + 1] = id.data[o + 2] = v; id.data[o + 3] = 255; }
       g2.putImageData(id, 0, 0);
-      // property features from the 2D map (20 x 26 cells over the same box)
+      // property features from the property map (20 x 26 cells over the same box)
       var M = I.map, C = 20, Rr = 26, cw = W / C, ch = H / Rr, cellsOf = function (z0) { var o = []; for (var q = 0; q < C * Rr; q++) if (M.cells[q] === z0) o.push(q); return o; };
       var sq = function (q) { var x0 = (q % C) * cw, y0 = ((q / C) | 0) * ch; return [[x0, y0], [x0 + cw, y0], [x0 + cw, y0 + ch], [x0, y0 + ch]]; };
       var comps = function (z0) { var seen = {}, out = []; cellsOf(z0).forEach(function (q) { if (seen[q]) return; var st2 = [q], c = []; seen[q] = 1; while (st2.length) { var a = st2.pop(); c.push(a); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var xx = a % C + d[0], yy = ((a / C) | 0) + d[1], b = yy * C + xx; if (xx >= 0 && yy >= 0 && xx < C && yy < Rr && !seen[b] && M.cells[b] === z0) { seen[b] = 1; st2.push(b); } }); } out.push(c); }); return out; };

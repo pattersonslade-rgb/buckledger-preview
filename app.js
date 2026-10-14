@@ -431,7 +431,7 @@
         S.settings.license = { ok: true, tier: keepUp ? 'elite' : r.tier, key: key.toUpperCase(), at: (sameMain && cur.at) || Date.now(), source: 'gumroad', verifiedAt: Date.now(), uses: r.uses, sale: r.sale, product: r.product, device: deviceId(), upgrade: keepUp };
         flush();
         if (sameMain) return { ok: true, msg: 'Key re-checked. ' + TIER_NAME[tier()] + ' is active.' };
-        return { ok: true, msg: (r.tier === 'elite' ? 'Elite unlocked: unlimited cameras and bucks, plus the Movement Simulator.' : 'Pro unlocked: ' + C.PRO_CAMERA_LIMIT + ' cameras and ' + C.PRO_BUCK_LIMIT + ' named bucks.') + (r.guessed ? ' (Couldn’t read the version on this key, so it unlocked Pro. If you bought Elite, contact the seller through your Gumroad receipt.)' : '') + ' Good luck this season! 🦌' };
+        return { ok: true, msg: (r.tier === 'elite' ? 'Elite unlocked: unlimited cameras and bucks, plus the 3D Terrain Sim.' : 'Pro unlocked: ' + C.PRO_CAMERA_LIMIT + ' cameras and ' + C.PRO_BUCK_LIMIT + ' named bucks.') + (r.guessed ? ' (Couldn’t read the version on this key, so it unlocked Pro. If you bought Elite, contact the seller through your Gumroad receipt.)' : '') + ' Good luck this season! 🦌' };
       });
     });
   }
@@ -451,7 +451,7 @@
       cur.verifiedAt = Date.now(); cur.tier = 'elite';
       cur.upgrade = { key: upKey.toUpperCase(), product: ru.product, verifiedAt: Date.now(), uses: ru.uses, sale: ru.sale };
       flush();
-      return { ok: true, msg: 'Upgraded to Elite: unlimited cameras and bucks, plus the Movement Simulator.' };
+      return { ok: true, msg: 'Upgraded to Elite: unlimited cameras and bucks, plus the 3D Terrain Sim.' };
     });
   }
   function recheckLicense() {
@@ -646,7 +646,7 @@
   function render() {
     if (!S) return;
     R = parseHash();
-    if (R.view !== 'sim' || R.q.v !== '3d') t3Day = null;
+    if (R.view !== 'sim' || R.q.v === 'map') t3Day = null;
     if (simApi) { simApi.destroy(); simApi = null; }
     if (simDemo) { simDemo.destroy(); simDemo = null; }
     if (t3Api) { t3Api.destroy(); t3Api = null; }
@@ -1156,7 +1156,7 @@
     h += '<div class="tiers">' +
       '<div class="tier' + (t === 'free' ? ' cur' : '') + '"><b>Free</b><span>' + plural(C.FREE_CAMERA_LIMIT || 0, 'camera') + ', ' + plural(C.FREE_BUCK_LIMIT || 0, 'named buck') + ', ' + plural(C.FREE_PRED_LIMIT || 1, 'prediction') + '</span></div>' +
       '<div class="tier' + (t === 'pro' ? ' cur' : '') + '"><b>Pro' + (priceOf('pro') ? ' · ' + esc(priceOf('pro')) : '') + '</b><span>' + plural(C.PRO_CAMERA_LIMIT || 0, 'camera') + ', ' + plural(C.PRO_BUCK_LIMIT || 0, 'named buck') + ', ' + (C.PRO_OPEN_PRED_LIMIT || 3) + ' open predictions</span></div>' +
-      '<div class="tier' + (t === 'elite' ? ' cur' : '') + '"><b>Elite' + (priceOf('elite') ? ' · ' + esc(priceOf('elite')) : '') + '</b><span>Unlimited cameras, bucks &amp; predictions + 2D Movement Simulator + 3D Terrain Sim</span></div></div>' +
+      '<div class="tier' + (t === 'elite' ? ' cur' : '') + '"><b>Elite' + (priceOf('elite') ? ' · ' + esc(priceOf('elite')) : '') + '</b><span>Unlimited cameras, bucks &amp; predictions + 3D Terrain Sim</span></div></div>' +
       '<p class="tiny muted" style="margin:6px 0 10px">' + esc(C.PRO_PRICE_NOTE || '') + '</p>';
     if (t === 'free') h += buyBtn('pro', 'Get Pro') + '<div style="height:8px"></div>' + buyBtn('elite', 'Get Elite');
     if (t === 'pro') h += buyBtn('upgrade', 'Upgrade to Elite') + '<p class="tiny muted" style="margin:6px 0 0">For Pro owners: pay just the difference. Enter the upgrade key below; it works together with your Pro key.</p>';
@@ -1191,34 +1191,25 @@
     return h + installNote();
   };
 
-  /* ---------------- Movement Simulator (Elite): 2D map + 3D terrain, one engine (terrain.js) ---------------- */
+  /* ---------------- Simulator (Elite): the 3D Terrain Sim only. The property map editor (sim.js) only marks bedding, food and stands for it ---------------- */
   var simApi = null, simDemo = null;
-  var TEASER = '<p class="small">See your property the way a buck and the air see it. The wind and its wavering spread, warm air rising and cool air sinking on your real slopes, and your scent drifting out from each stand. Deer routes run from your bedding to your food. Every stand turns teal (good), amber (caution) or crimson (avoid) with a plain reason, and it finds your safest walk-in from where you park. Pick a real day and slide through it hour by hour.</p>';
   VIEWS.sim = function () {
-    var is3 = R.q.v === '3d';
-    var h = head('Simulator') + '<div class="seg" id="sim-tabs" role="tablist" aria-label="Simulator view"><a href="#/sim" role="tab" id="tab-2d" aria-selected="' + !is3 + '"' + (is3 ? '' : ' class="on" aria-current="page"') + '>' + (is3 ? '' : '✓ ') + '2D map</a><a href="#/sim?v=3d" role="tab" id="tab-3d" aria-selected="' + is3 + '"' + (is3 ? ' class="on" aria-current="page"' : '') + '>' + (is3 ? '✓ ' : '') + '3D terrain</a></div>';
-    if (is3) return h + sim3dHtml();
-    if (!isElite()) {
-      var t = tier();
-      return h + '<div class="paper" id="sim-locked"><h3>🔒 An Elite feature</h3>' + TEASER +
-        '<p class="small muted">A model to plan setups, not a forecast. Your map stays on this phone and in your backups.</p>' +
-        (t === 'pro' ? buyBtn('upgrade', 'Upgrade to Elite') : buyBtn('elite', 'Get Elite')) +
-        (proOnSale() ? '<a class="btn ink block" style="margin-top:8px" href="#/more">I have a license key</a>' : '') + '</div>' +
-        '<div class="paper"><h3>Try it on the Example property</h3><p class="tiny muted" style="margin:0 0 6px">Example property. Not your land.</p><div id="sim-demo"></div></div>';
-    }
-    return h + (hasLoc() ? '' : '<p class="small" style="color:#9a2f1c">Add your property location (More → Property location) so sunrise, sunset and weather fit your land.</p>') + '<div id="sim-root"></div>';
+    var h = head('Simulator');
+    if (R.q.v === 'map' && isElite()) return h + '<div class="paper"><h3>Property map</h3><p class="small muted" style="margin:0 0 8px">Mark your bedding, food and stands. The 3D Terrain Sim lays them on your real ground.</p><div id="map-root"></div><a class="btn ink block" style="margin-top:8px" href="#/sim">Back to the 3D sim</a></div>';
+    return h + sim3dHtml();
   };
   VIEWS.sim.after = function () {
-    if (R.q.v === '3d') { mount3d(); return; }
-    if (!isElite()) { var d = $('#sim-demo'); if (d) simDemo = mountPort(d, true); return; }
-    var el = $('#sim-root'); if (!el || !window.BuckSim) return;
-    simApi = window.BuckSim.mount(el, {
-      getMap: function () { return S.map; },
-      saveMap: function (m) { S.map = window.BuckSim.clean(m); save(); },
-      cameras: function () { return S.cameras.map(function (c) { return { id: c.id, name: c.name }; }); },
-      toast: function (m) { toast(m); },
-      engineHost: function (map, exParking) { return engineHost({ flat: true, map: map, parking: exParking }); }
-    });
+    if (R.q.v === 'map' && isElite()) {
+      var el = $('#map-root'); if (!el || !window.BuckSim) return;
+      simApi = window.BuckSim.mount(el, {
+        getMap: function () { return S.map; },
+        saveMap: function (m) { S.map = window.BuckSim.clean(m); save(); },
+        cameras: function () { return S.cameras.map(function (c) { return { id: c.id, name: c.name }; }); },
+        toast: function (m) { toast(m); }
+      });
+      return;
+    }
+    mount3d();
   };
   // Property clock: the hour on the slider is the property's own hour. With saved weather, Open-Meteo's instants
   // (timezone picked from the property's spot) set it exactly; without, the phone's clock stands in.
@@ -1235,18 +1226,6 @@
   var DEMO_BOX = { lat: 38, lng: -90 };   // made-up mid-US spot, only for sunrise/sunset on the Example property
   function engineHost(o) {
     o = o || {};
-    if (o.demo) {
-      var ex = window.BuckSim.example();
-      return {
-        demo: true, flat: !!o.flat, hour: 16, day: new Date(2026, 10, 8, 12), hasDem: function () { return true; },
-        dem: function () { return BLTerrain.exampleDem(); }, map: function () { return ex; },
-        aerial: function () { return 'data/example-aerial.jpg'; }, fine: function () { var f = (window.BL_EXAMPLE || {}).fine; return f ? { nx: f.nx, ny: f.ny, z: Float32Array.from(f.zdm, function (v) { return v / 10; }) } : null; }, box: function () { return { lat: DEMO_BOX.lat, lng: DEMO_BOX.lng, acres: ex.acres }; },
-        parking: function () { return window.BuckSim.exampleParking(); }, sunTimes: function (d) { return sunTimes(d, DEMO_BOX.lat, DEMO_BOX.lng); },
-        when: function (day, h) { return new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), h + 6)); },
-        air: function () { return null; }, manualAir: function () { return { wd: 225, ws: 6, cc: 20 }; },
-        airNote: function () { return '<p class="tiny muted" style="margin:4px 0">Demo air: light wind from the southwest, clear sky.</p>'; }
-      };
-    }
     var map = o.map || S.map, flat = !!o.flat;
     var box = (S.t3 && S.t3.box) || { lat: hasLoc() ? S.settings.lat : DEMO_BOX.lat, lng: hasLoc() ? S.settings.lng : DEMO_BOX.lng, acres: map ? map.acres : 160 };
     if (flat && !(S.t3 && S.t3.box) && map) box = { lat: box.lat, lng: box.lng, acres: map.acres };
@@ -1256,7 +1235,7 @@
       dem: function () { if (map && map.example) return BLTerrain.exampleDem(); return demOK() ? DEM.z : (flat ? new Float32Array(BLTerrain.NX * BLTerrain.NY) : null); },
       map: function () { return map; }, box: function () { return box; },
       aerial: function () { return map && map.example ? 'data/example-aerial.jpg' : usgsImageURL(box); },
-      fine: function () { return map && map.example ? engineHost({ demo: true }).fine() : null; },
+      fine: function () { return null; },
       fineDem: function () { return map && map.example ? null : BLTerrain.demURL(box, BLTerrain.NX * 3, BLTerrain.NY * 3); },
       parking: function () { return o.parking || (S.t3 && S.t3.parking) || []; }, sunTimes: function (d) { return sunTimes(d, box.lat, box.lng); },
       when: function (day, h) { var e = siteEntry(box, day, h); return e ? new Date(e.e) : new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, 0, 0); },
@@ -1614,15 +1593,15 @@
     var box = S.t3 && S.t3.box;
     if (window.BL_PREVIEW && !(box && S.map)) return '<div class="paper"><h3>Preview: Elite 3D sim on the Example property</h3><p class="tiny muted" style="margin:0 0 6px">Private preview build. Not live.</p><div id="t3-root"></div></div>'; /* PREVIEW BUILD ONLY */
     if (!box) {
-      return '<div class="paper" id="t3-setup"><h3>Set up your 3D ground</h3><p class="small">The 3D sim lays your 2D map (bedding, food, stands) on real USGS elevation. <b>US only.</b></p>' +
+      return '<div class="paper" id="t3-setup"><h3>Set up your 3D ground</h3><p class="small">The 3D sim lays your property map (bedding, food, stands) on real USGS elevation. <b>US only.</b></p>' +
         (hasLoc() ? '' : '<p class="small" style="color:#9a2f1c">Add your property location first (More → Property location).</p>') +
-        (S.map ? '' : '<p class="small" style="color:#9a2f1c">Draw your property in the 2D map first (bedding, food, stands).</p>') +
+        (S.map ? '' : '<p class="small" style="color:#9a2f1c">Mark your property map first (bedding, food, stands).</p><a class="btn ink block" style="margin-bottom:8px" href="#/sim?v=map">Property map</a>') +
         '<label class="field"><span>Map size (acres), centred on your property location</span><input type="number" id="t3-acres" min="5" max="5000" value="' + (S.map && !S.map.example ? S.map.acres : 160) + '"></label>' +
-        '<button class="btn go block" data-act="t3-box"' + (hasLoc() && S.map ? '' : ' disabled') + '>Use this box</button><p class="tiny muted" style="margin:6px 0 0">North is up. The box is the same shape as your 2D map.</p></div>';
+        '<button class="btn go block" data-act="t3-box"' + (hasLoc() && S.map ? '' : ' disabled') + '>Use this box</button><p class="tiny muted" style="margin:6px 0 0">North is up. The box is the same shape as your property map.</p></div>';
     }
     var have = DEM && DEM.key === demKey(box);
     if (!have) return '<div class="paper" id="t3-fetch"><h3>Get your elevation</h3><p class="small">One download from USGS 3DEP for your box (about 70 KB). It is saved on this phone, so you only do this once. Only the box corners are sent.</p><button class="btn go block" data-act="t3-dem">Get USGS elevation</button><button class="btn ink block" style="margin-top:8px" data-act="t3-reset">Change the box</button></div>';
-    return '<div id="t3-root"></div><div class="btn-row" style="margin-top:8px"><button class="btn ink" data-act="t3-park">Mark parking</button><a class="btn ink" href="#/sim">Edit 2D map</a><button class="btn ink" data-act="t3-reset">Change box</button></div>' +
+    return '<div id="t3-root"></div><div class="btn-row" style="margin-top:8px"><button class="btn ink" data-act="t3-park">Mark parking</button><a class="btn ink" href="#/sim?v=map">Property map</a><button class="btn ink" data-act="t3-reset">Change box</button></div>' +
       '<p class="tiny muted">Model, not a forecast. The wind is run with its normal wavering spread for the hour (EPA stability classes). Wind under cover uses US Forest Service shelter factors; slope air uses published downslope and upslope speeds; scent spread uses textbook formulas (Turner stability, Briggs spread). Stands are rated only by whether your air blows over bedding, routes or food on the property (National Deer Association: keep your scent from blowing toward deer): crimson when the middle of the wind spread does, amber when only its edges do. Deer routes are worked out in the phone from your own bedding and food marks.</p><p class="t3-credit">Aerial photo: USGS The National Map, Imagery Only (mostly USDA NAIP, leaf-on; flight year varies by area). Elevation: USGS 3DEP. Map services and data available from U.S. Geological Survey, National Geospatial Program.</p>';
   }
   function mount3d() {
@@ -1722,8 +1701,8 @@
   function proSheet(kind) {
     var t = tier(), what = kind === 'cam' ? plural(camLimit(), 'camera') : plural(buckLimit(), 'named buck');
     var body = t === 'free'
-      ? '<p>The free version keeps ' + what + '. <b>Pro</b>' + (priceOf('pro') ? ' (' + esc(priceOf('pro')) + ')' : '') + ' keeps ' + plural(C.PRO_CAMERA_LIMIT, 'camera') + ' and ' + plural(C.PRO_BUCK_LIMIT, 'named buck') + '. <b>Elite</b>' + (priceOf('elite') ? ' (' + esc(priceOf('elite')) + ')' : '') + ' is unlimited and adds the 2D and 3D simulators. ' + esc(C.PRO_PRICE_NOTE || '') + '</p>' + buyBtn('pro', 'Get Pro') + '<div style="height:8px"></div>' + buyBtn('elite', 'Get Elite')
-      : '<p>Pro keeps ' + what + '. <b>Elite</b> is unlimited and adds the 2D and 3D simulators. Pro owners pay just the difference.</p>' + buyBtn('upgrade', 'Upgrade to Elite');
+      ? '<p>The free version keeps ' + what + '. <b>Pro</b>' + (priceOf('pro') ? ' (' + esc(priceOf('pro')) + ')' : '') + ' keeps ' + plural(C.PRO_CAMERA_LIMIT, 'camera') + ' and ' + plural(C.PRO_BUCK_LIMIT, 'named buck') + '. <b>Elite</b>' + (priceOf('elite') ? ' (' + esc(priceOf('elite')) + ')' : '') + ' is unlimited and adds the 3D Terrain Sim. ' + esc(C.PRO_PRICE_NOTE || '') + '</p>' + buyBtn('pro', 'Get Pro') + '<div style="height:8px"></div>' + buyBtn('elite', 'Get Elite')
+      : '<p>Pro keeps ' + what + '. <b>Elite</b> is unlimited and adds the 3D Terrain Sim. Pro owners pay just the difference.</p>' + buyBtn('upgrade', 'Upgrade to Elite');
     sheet('<h2>' + TIER_NAME[t] + ' limit reached</h2>' + body + (proOnSale() ? '<a class="btn ink block" style="margin-top:8px" href="#/more" data-x="close">I have a license key</a>' : '') +
       '<button class="btn ink block" style="margin-top:8px" data-x="close">Not now</button>');
   }
