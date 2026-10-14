@@ -30,6 +30,7 @@
     return {
       v: 1, name: String(m.name || 'My property').slice(0, 60), example: !!m.example, acres: num(m.acres, 1, 100000, 80), cols: COLS, rows: ROWS, cells: cells,
       stands: (Array.isArray(m.stands) ? m.stands : []).filter(pt).slice(0, MAX_STANDS).map(function (s, i) { return { x: s.x, y: s.y, name: String(s.name || ('Stand ' + (i + 1))).slice(0, 30) }; }),
+      anchor: (m.anchor && isFinite(m.anchor.lat) && isFinite(m.anchor.lng) && Math.abs(m.anchor.lat) <= 90 && Math.abs(m.anchor.lng) <= 180) ? { lat: +m.anchor.lat, lng: +m.anchor.lng } : null,
       cams: (Array.isArray(m.cams) ? m.cams : []).filter(pt).slice(0, MAX_CAMS).map(function (c) { return { x: c.x, y: c.y, cam: String(c.cam || '').slice(0, 40) }; })
     };
   }
@@ -37,7 +38,7 @@
   /* ---------- UI ---------- */
   var CSS = '.bsim{color:inherit}.bsim .bs-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}' +
     '.bsim .bs-tab{min-height:44px;border-radius:10px;border:1px solid #3a4331;background:#252b20;color:#eee9da;font:inherit;font-weight:700}.bsim .bs-tab.on{background:#d9822b;border-color:#d9822b;color:#1d1407}' +
-    '.bsim .bs-wrap{display:block}.bsim canvas{width:100%;display:block;border-radius:12px;background:#d8cfa6;touch-action:pan-y}.bsim.editing canvas{touch-action:none}' +
+    '.bsim .bs-wrap{display:block}.bsim .bs-stage{position:relative;border-radius:12px;overflow:hidden;background:#d8cfa6}.bsim .bs-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}.bsim canvas{position:relative;width:100%;display:block;touch-action:pan-y}.bsim .bs-hint{background:#33291b;border:1px solid #d9822b;color:#f7d9b5;border-radius:10px;padding:7px 10px;font-size:13px;margin:0 0 8px}.bsim .bs-hint a{color:#ffb866;font-weight:700}.bsim .bs-cap{font-size:11px;color:#6b6553;margin:4px 2px 0}.bsim.editing canvas{touch-action:none}' +
     '.bsim .bs-card{background:#f2ead6;color:#2a2b22;border-radius:14px;padding:12px;margin:10px 0}.bsim .bs-card h3{margin:0 0 8px;font-size:16px}' +
     '.bsim .bs-row{margin:0 0 12px}.bsim .bs-lab{display:flex;justify-content:space-between;font-size:13.5px;color:#6b6553;margin-bottom:4px}.bsim .bs-lab b{color:#2a2b22}' +
     '.bsim input[type=range]{width:100%;accent-color:#c4621a;height:30px}' +
@@ -45,28 +46,38 @@
     '.bsim .bs-seg button.on{background:#2a2b22;border-color:#2a2b22;color:#f2ead6}.bsim .bs-btn.go{background:#d9822b;border-color:#d9822b;color:#1d1407}' +
     '.bsim .bs-why{margin:0;padding-left:18px;line-height:1.45;font-size:14.5px}.bsim .bs-why li{margin-bottom:6px}.bsim .bs-src{display:inline-block;font-size:10.5px;font-weight:700;color:#7a3d14;border:1px solid #d6b48a;border-radius:8px;padding:0 5px;margin-left:2px;vertical-align:1px;white-space:nowrap}' +
     '.bsim .bs-stand{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed #cbbf9f;font-size:14.5px}.bsim .bs-stand:last-child{border-bottom:0}.bsim .bs-dot{width:14px;height:14px;border-radius:50%;flex:none;border:2px solid #2a2b22}' +
-    '.bsim .c-green{background:#3f9b3a}.bsim .c-yellow{background:#e3c02f}.bsim .c-red{background:#cf3b2b}.bsim .bs-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.bsim .bs-tools button{min-height:44px;border-radius:9px;border:2px solid #cbbf9f;background:#fffaf0;font:inherit;font-size:12px;font-weight:700;color:#2a2b22;display:flex;align-items:center;gap:5px;padding:3px 5px;text-align:left;line-height:1.1}' +
+    '.bsim .c-green{background:#3f9b3a}.bsim .c-yellow{background:#e3c02f}.bsim .c-red{background:#cf3b2b}.bsim .bs-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:5px}.bsim .bs-tools button{min-height:44px;border-radius:9px;border:2px solid #cbbf9f;background:#fffaf0;font:inherit;font-size:12px;font-weight:700;color:#2a2b22;display:flex;align-items:center;gap:5px;padding:3px 5px;text-align:left;line-height:1.1}' +
     '.bsim .bs-tools button.on{border-color:#2a2b22;box-shadow:0 0 0 2px #2a2b22 inset}.bsim .bs-sw{width:14px;height:14px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.3)}' +
     '.bsim .bs-note{font-size:12.5px;color:#6b6553;margin:6px 0 0}.bsim .bs-in{width:100%;min-height:44px;border-radius:9px;border:1px solid #cbbf9f;background:#fffaf0;color:#2a2b22;font:inherit;font-size:16px;padding:8px 10px}' +
-    '.bsim .bs-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:#d9d4c4;margin:6px 2px 0}.bsim .bs-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}' +
+    '.bsim .bs-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:#4a4636;margin:6px 2px 0}.bsim .bs-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}' +
     '.bsim .bs-flag{background:#33291b;border:1px solid #d9822b;color:#f7d9b5;border-radius:10px;padding:7px 10px;font-size:13px;margin:0 0 8px}' +
-    '@media (min-width:820px){.bsim .bs-wrap{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:start}}';
+    '@media (min-width:820px){.pm-wide{width:min(1120px,calc(100vw - 32px));margin-left:50%;transform:translateX(-50%)}.bsim .bs-wrap{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}.bsim #bs-side .bs-card:first-child{margin-top:0}}@media (min-width:820px) and (orientation:landscape){.bsim .bs-mapcol{position:sticky;top:8px}}';
 
   function mount(root, host) {
     host = host || {};
     if (!document.getElementById('bsim-css')) { var st = document.createElement('style'); st.id = 'bsim-css'; st.textContent = CSS; document.head.appendChild(st); }
     var map = clean(host.getMap && host.getMap()) || blank();
     var mode = 'edit', tool = 'B', brush = 1, camPick = '', undo = [], dead = false, canvas = null, ctx = null, cw = 0, eng = null;
-    function saveMap() { if (host.saveMap) host.saveMap(map); }
+    function saveMap() { if (!map.anchor && aer && aer.anchor && drawn()) map.anchor = aer.anchor; if (host.saveMap) host.saveMap(map); }
     function shell() {
       if (eng) { eng.destroy(); eng = null; }
-      root.innerHTML = '<div class="bsim" id="bsim"><div class="bs-wrap"><div><canvas id="bs-canvas" aria-label="Property map"></canvas><div class="bs-legend" id="bs-legend"></div></div><div id="bs-side"></div></div></div>';
+      root.innerHTML = '<div class="bsim" id="bsim"><div class="bs-wrap"><div class="bs-mapcol"><div id="bs-hint"></div><div class="bs-stage" id="bs-stage"><img id="bs-aerial" alt="" hidden><canvas id="bs-canvas" aria-label="Property map"></canvas></div><div class="bs-cap" id="bs-cap"></div><div class="bs-legend" id="bs-legend"></div></div><div id="bs-side"></div></div></div>';
       root.querySelector('#bsim').classList.add('editing');
       canvas = root.querySelector('#bs-canvas'); ctx = canvas.getContext('2d');
       canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', onUp);
-      size(); side(); legend(); draw();
+      size(); side(); legend(); aerial(); draw();
     }
-    function size() { var w = Math.min(root.clientWidth || 360, 560), dpr = window.devicePixelRatio || 1; cw = w / COLS; canvas.style.height = (cw * ROWS) + 'px'; canvas.width = Math.round(w * dpr); canvas.height = Math.round(cw * ROWS * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    var aer = null;   // { url, label } from the host, or null when no Property Location is set
+    function drawn() { return /[^.]/.test(map.cells) || map.stands.length > 0 || map.cams.length > 0; }
+    function aerial() {
+      var img = root.querySelector('#bs-aerial'), hint = root.querySelector('#bs-hint'), cap = root.querySelector('#bs-cap'); if (!img) return;
+      aer = host.aerial ? host.aerial(map, drawn()) : null;
+      if (!aer) { img.hidden = true; img.removeAttribute('src'); hint.innerHTML = '<div class="bs-hint">Set your <a href="#/more">Property Location on More</a> to see the aerial photo of your ground under this map.</div>'; cap.textContent = ''; draw(); return; }
+      hint.innerHTML = ''; cap.textContent = aer.label || '';
+      if (img.getAttribute('src') !== aer.url) { img.hidden = true; img.onload = function () { img.hidden = false; draw(); }; img.onerror = function () { img.hidden = true; cap.textContent = 'Aerial photo unavailable offline. ' + (aer.label || ''); draw(); }; img.src = aer.url; }
+    }
+    function hasPhoto() { var img = root.querySelector('#bs-aerial'); return !!(img && !img.hidden && img.complete && img.naturalWidth); }
+    function size() { var st = root.querySelector('#bs-stage'); if (st) st.style.width = ''; var w = Math.min((st && st.clientWidth) || root.clientWidth || 360, 720); if (window.innerWidth >= 820 && window.innerWidth > window.innerHeight) w = Math.min(w, Math.max(300, (window.innerHeight - 200) * COLS / ROWS)); if (st) st.style.width = w + 'px'; var dpr = window.devicePixelRatio || 1; cw = w / COLS; canvas.style.height = (cw * ROWS) + 'px'; canvas.width = Math.round(w * dpr); canvas.height = Math.round(cw * ROWS * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
     function legend() {
       var el = root.querySelector('#bs-legend'); if (!el) return;
       el.innerHTML = ZKEYS.filter(function (k) { return k !== '.'; }).map(function (k) { return '<span><i style="background:' + ZONES[k].color + '"></i>' + ZONES[k].name + '</span>'; }).join('');
@@ -90,15 +101,17 @@
     function bindEdit() {
       var nm = root.querySelector('#bs-name'), ac = root.querySelector('#bs-acres'), cp = root.querySelector('#bs-campick');
       nm.addEventListener('change', function () { map.name = String(nm.value || 'My property').slice(0, 60); map.example = false; saveMap(); });
-      ac.addEventListener('change', function () { map.acres = num(ac.value, 1, 100000, map.acres); ac.value = map.acres; root.querySelector('#bs-scale').textContent = scaleText(); saveMap(); });
+      ac.addEventListener('change', function () { map.acres = num(ac.value, 1, 100000, map.acres); ac.value = map.acres; root.querySelector('#bs-scale').textContent = scaleText(); saveMap(); aerial(); });
       if (cp) { if (!camPick && cp.value) camPick = cp.value; cp.addEventListener('change', function () { camPick = cp.value; }); }
     }
     /* drawing */
     function draw() {
       if (!ctx) return; var c = map.cells, W2 = cw * COLS, H2 = cw * ROWS;
-      ctx.clearRect(0, 0, W2, H2);
-      for (var i = 0; i < N; i++) { var x = i % COLS, y = (i / COLS) | 0; ctx.fillStyle = ZONES[c[i]].color; ctx.fillRect(x * cw, y * cw, cw + 0.5, cw + 0.5); }
-      ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1;
+      ctx.clearRect(0, 0, W2, H2); var ph = hasPhoto();
+      ctx.globalAlpha = ph ? 0.5 : 1;
+      for (var i = 0; i < N; i++) { if (ph && c[i] === '.') continue; var x = i % COLS, y = (i / COLS) | 0; ctx.fillStyle = ZONES[c[i]].color; ctx.fillRect(x * cw, y * cw, cw + 0.5, cw + 0.5); }
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = ph ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.08)'; ctx.lineWidth = 1;
       for (var gx = 1; gx < COLS; gx++) { ctx.beginPath(); ctx.moveTo(gx * cw, 0); ctx.lineTo(gx * cw, H2); ctx.stroke(); }
       for (var gy = 1; gy < ROWS; gy++) { ctx.beginPath(); ctx.moveTo(0, gy * cw); ctx.lineTo(W2, gy * cw); ctx.stroke(); }
       map.stands.forEach(function (s, k) {
@@ -107,7 +120,7 @@
         ctx.fillStyle = '#1d1d17'; ctx.font = 'bold ' + Math.round(r * 1.1) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(k + 1), px, py + 0.5);
       });
       map.cams.forEach(function (cm) { var px = cm.x * cw, py = cm.y * cw; ctx.fillStyle = '#2a2b22'; ctx.fillRect(px + cw * 0.18, py + cw * 0.18, cw * 0.64, cw * 0.64); });
-      ctx.fillStyle = 'rgba(29,29,23,.8)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N ↑', W2 - 18, 12);
+      ctx.fillStyle = hasPhoto() ? 'rgba(255,255,255,.95)' : 'rgba(29,29,23,.8)'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N ↑', W2 - 18, 12);
     }
     /* editing */
     var painting = false, lastCell = -1;
@@ -149,8 +162,8 @@
     shell();
     var api = {
       destroy: destroy, getMap: function () { return JSON.parse(JSON.stringify(map)); },
-      engine: function () { return eng; },
-      state: function () { return { mode: mode, tool: tool, example: !!map.example, stands: map.stands.slice() }; }
+      engine: function () { return eng; }, refresh: function () { if (!dead) aerial(); }, photo: hasPhoto,
+      state: function () { return { aerial: aer ? aer.url : null, anchor: map.anchor || null, mode: mode, tool: tool, example: !!map.example, stands: map.stands.slice() }; }
     };
     root.__bsim = api;
     return api;

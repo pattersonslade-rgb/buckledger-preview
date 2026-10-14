@@ -1148,7 +1148,9 @@
     h += fieldTipsHtml();
     var t = tier(), L = st.license;
     h += '<div class="paper" id="pro"><h3>Your plan: ' + TIER_NAME[t] + '</h3>';
-    if (t !== 'free') {
+    if (t !== 'free' && !L) {
+      h += '<p style="margin:0 0 6px">✓ ' + TIER_NAME[t] + ' is unlocked for this preview.</p>';
+    } else if (t !== 'free') {
       h += '<p style="margin:0 0 6px">✓ ' + TIER_NAME[t] + ' is unlocked on this phone' + (L.source === 'dev' ? ' (dev test code)' : '') + '.</p><p class="small muted">License key: <b>' + esc(maskKey(L.key)) + '</b>' + (L.upgrade ? ' + upgrade key <b>' + esc(maskKey(L.upgrade.key)) + '</b>' : '') + (L.verifiedAt ? ' · checked ' + fmtDay(L.verifiedAt) : '') + '. Keep your Gumroad receipt' + (L.upgrade ? 's' : '') + ' so you can enter the key' + (L.upgrade ? 's' : '') + ' again on a new phone' + (L.upgrade ? ' (Pro key first, then the upgrade key)' : '') + '.</p>';
     } else if (L && L.revokedAt) {
       h += '<p class="small" style="color:#9a2f1c">' + esc(L.reason || 'Your license is no longer active.') + '</p>';
@@ -1195,7 +1197,7 @@
   var simApi = null, simDemo = null;
   VIEWS.sim = function () {
     var h = head('Simulator');
-    if (R.q.v === 'map' && isElite()) return h + '<div class="paper"><h3>Property map</h3><p class="small muted" style="margin:0 0 8px">Mark your bedding, food and stands. The 3D Terrain Sim lays them on your real ground.</p><div id="map-root"></div><a class="btn ink block" style="margin-top:8px" href="#/sim">Back to the 3D sim</a></div>';
+    if (R.q.v === 'map' && isElite()) return h + '<div class="paper pm-wide"><h3>Property map</h3><p class="small muted" style="margin:0 0 8px">Mark your bedding, food and stands. The 3D Terrain Sim lays them on your real ground.</p><div id="map-root"></div><a class="btn ink block" style="margin-top:8px" href="#/sim">Back to the 3D sim</a></div>';
     return h + sim3dHtml();
   };
   VIEWS.sim.after = function () {
@@ -1205,7 +1207,16 @@
         getMap: function () { return S.map; },
         saveMap: function (m) { S.map = window.BuckSim.clean(m); save(); },
         cameras: function () { return S.cameras.map(function (c) { return { id: c.id, name: c.name }; }); },
-        toast: function (m) { toast(m); }
+        toast: function (m) { toast(m); },
+        // Base layer: the same USGS aerial (USGSImageryOnly, same 3857 box math) the 3D sim drapes. With a 3D box set, the exact
+        // 3D footprint; otherwise the More-tab Property Location at the map's acres, followed until something is drawn.
+        aerial: function (m, drawn) {
+          if (!window.BLTerrain) return null;
+          var tb = S.t3 && S.t3.box, a = tb ? { lat: tb.lat, lng: tb.lng } : (drawn && m.anchor) ? m.anchor : hasLoc() ? { lat: S.settings.lat, lng: S.settings.lng } : null;
+          if (!a) return null;
+          var box = { lat: a.lat, lng: a.lng, acres: tb ? tb.acres : m.acres };
+          return { url: BLTerrain.imageURL(box, 768, 998), anchor: a, label: 'USGS aerial · ' + a.lat.toFixed(4) + ', ' + a.lng.toFixed(4) + ' · ' + box.acres + ' ac' + (tb ? ' (your 3D sim box)' : '') };
+        }
       });
       return;
     }
