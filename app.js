@@ -179,7 +179,9 @@
       tags: tags, deer: dr, done: !!p.done && (tags.length + dr.length > 0),
       thumb: p.thumb instanceof Blob ? p.thumb : null, added: num(p.added, 0, 1e14, Date.now()),
       temp: (p.temp === null || p.temp === undefined || p.temp === '') ? null : num(p.temp, -40, 130, null), tempSrc: p.tempSrc === 'ocr' ? 'ocr' : (p.temp !== null && p.temp !== undefined && p.temp !== '' ? 'typed' : null),
-      dir: ['L', 'R', 'T', 'A'].indexOf(p.dir) >= 0 ? p.dir : null, zone: typeof p.zone === 'string' ? p.zone.slice(0, 30) : null
+      dir: ['L', 'R', 'T', 'A'].indexOf(p.dir) >= 0 ? p.dir : null, zone: typeof p.zone === 'string' ? p.zone.slice(0, 30) : null,
+      hash: /^[0-9a-f]{64}$/.test(String(p.hash)) ? p.hash : '', dh: /^[0-9a-f]{16}$/.test(String(p.dh)) ? p.dh : '', w: num(p.w, 0, 100000, 0), h: num(p.h, 0, 100000, 0),
+      stamp: p.stamp && typeof p.stamp === 'object' ? { date: clampStr(p.stamp.date, 10), time: clampStr(p.stamp.time, 8), name: clampStr(p.stamp.name, 24) } : null
     };
   }
   var saveTimer = null;
@@ -768,7 +770,7 @@
     if (pullState && pullState.finished) {
       var r = pullState;
       return h + '<div class="paper" id="pull-result"><h3 style="font-family:Georgia,serif">Pull logged: ' + plural(r.added, 'photo') + ' from ' + esc(camName(r.cam)) + '</h3><ul class="small" style="padding-left:18px;margin:6px 0 12px">' +
-        (r.dup ? '<li>' + plural(r.dup, 'duplicate') + ' skipped (already in your ledger)</li>' : '') +
+        (r.dup && window.BLDedup ? '<li style="list-style:none;margin-left:-18px">' + BLDedup.reviewHtml(r.dups, r.dupOpen) + '</li>' : r.dup ? '<li>' + plural(r.dup, 'duplicate') + ' skipped (already in your ledger)</li>' : '') +
         (r.skipped ? '<li>' + plural(r.skipped, 'file') + ' skipped (videos or not photos)</li>' : '') +
         (r.failedThumb ? '<li>' + plural(r.failedThumb, 'photo') + ' couldn’t be opened by this browser (kept without a picture)</li>' : '') +
         (r.noTime ? '<li><b>' + plural(r.noTime, 'photo') + ' had no date/time in the file.</b> Use the Stamp Reader to type the time printed on them.</li>' : (r.added ? '<li>Every photo had a date and time ✓</li>' : '')) + '</ul>' +
@@ -840,11 +842,12 @@
     });
   }
   function isImageFile(f) { return /^image\//.test(f.type || '') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name || ''); }
-  function runPull(files, camId) {
+  function runPull(files, camId, force) {
     S.settings.lastCam = camId; save();
     var pull = { id: uid(), cam: camId, at: Date.now(), count: 0, noTime: 0 };
     var seen = {}; P.forEach(function (p) { seen[p.name + '|' + p.size + '|' + (p.tsrc === 'exif' ? p.t : '')] = 1; });
-    pullState = { running: true, total: files.length, done: 0, added: 0, dup: 0, skipped: 0, noTime: 0, failedThumb: 0, pull: pull.id, cam: camId };
+    var dIdx = force || !window.BLDedup ? null : BLDedup.buildIndex(P);
+    pullState = { running: true, dups: [], dupOpen: false, force: !!force, total: files.length, done: 0, added: 0, dup: 0, skipped: 0, noTime: 0, failedThumb: 0, pull: pull.id, cam: camId };
     if (R.view !== 'pull') go('#/pull'); else render();
     var pending = [];
     function upd() { var s = $('#pull-status'), b = $('#pull-bar'); if (s) s.textContent = pullState.done + ' of ' + pullState.total; if (b) b.style.width = (pullState.done / pullState.total * 100) + '%'; }
@@ -857,17 +860,26 @@
       return readHead(f, 262144).then(function (buf) { return readExif(buf); }, function () { return null; }).then(function (ex) {
         var dt = ex && ex.dt;
         var key = f.name + '|' + f.size + '|' + (dt || '');
-        if (seen[key]) { pullState.dup++; return null; }
+        if (seen[key] && !force) { pullState.dup++; pullState.dups.push({ file: f, name: f.name, why: 'exif', ofName: '' }); return null; }
         seen[key] = 1;
-        return makeThumb(f).then(function (thumb) {
+        var fpP = window.BLDedup ? BLDedup.fingerprint(f, { exifT: dt || null, camId: camId }) : Promise.resolve(null);
+        return fpP.then(function (fp) {
+          if (fp && dIdx) {
+            var m = BLDedup.match(dIdx, fp);
+            if (m) { pullState.dup++; pullState.dups.push({ file: f, name: f.name, why: m.why, ofName: m.of.name || '' }); return null; }
+          }
+          return makeThumb(f).then(function (thumb) { return saveOne(thumb, fp); });
+        });
+        function saveOne(thumb, fp) {
           if (!thumb) pullState.failedThumb++;
           if (!dt) pullState.noTime++;
           var fd = f.lastModified ? new Date(f.lastModified) : null;
           var p = { id: uid(), cam: camId, pull: pull.id, name: clampStr(f.name, 200), size: f.size || 0, t: dt || null, tsrc: dt ? 'exif' : null,
             fileT: fd && !isNaN(fd) ? toLocalStr(fd) : null, tags: [], deer: [], done: false, thumb: thumb, added: Date.now() };
+          if (fp) { var fl = BLDedup.fields(fp); p.hash = fl.hash; p.dh = fl.dh; p.w = fl.w; p.h = fl.h; if (dIdx) BLDedup.add(dIdx, BLDedup.entryFromFp(fp, { id: p.id, name: p.name })); }
           P.push(p); PI[p.id] = p; pending.push(p); pullState.added++;
           if (pending.length >= 10) return flushPending();
-        });
+        }
       }).then(function () { pullState.done++; upd(); return next(); }, function () { pullState.done++; upd(); return next(); });
     }
     function finish() {
@@ -2287,6 +2299,8 @@
         $('#pull-file').click(); return;
       }
       case 'pull-again': pullState = null; render(); return;
+      case 'dedup-show': if (pullState) { pullState.dupOpen = !pullState.dupOpen; render(); } return;
+      case 'dedup-import': if (pullState && pullState.dups && pullState.dups.length) { runPull(pullState.dups.map(function (d) { return d.file; }), pullState.cam, true); } return;
       case 'more-rows': ledgerLimit += 200; render(); return;
       case 'sort-undo': sortUndoLast(); return;
       case 'stamp-band': stampBand = stampBand === 'bottom' ? 'top' : 'bottom'; stampY = null; render(); return;
@@ -2455,6 +2469,7 @@
       P = (r[1] || []).map(function (p) { return cleanPhoto(p, camIds, deerIds); }).filter(Boolean);
       PI = {}; P.forEach(function (p) { PI[p.id] = p; });
       render();
+      if (window.BLDedup) setTimeout(function () { BLDedup.backfill(P, function (p, one) { if (one) photoPut(p); }); }, 4000);
       setTimeout(function () { recheckLicense().catch(function () {}); }, 3000);
       readyResolve();
     }).catch(function (e) {
