@@ -876,7 +876,7 @@
           var fd = f.lastModified ? new Date(f.lastModified) : null;
           var p = { id: uid(), cam: camId, pull: pull.id, name: clampStr(f.name, 200), size: f.size || 0, t: dt || null, tsrc: dt ? 'exif' : null,
             fileT: fd && !isNaN(fd) ? toLocalStr(fd) : null, tags: [], deer: [], done: false, thumb: thumb, added: Date.now() };
-          if (fp) { var fl = BLDedup.fields(fp); p.hash = fl.hash; p.dh = fl.dh; p.w = fl.w; p.h = fl.h; if (dIdx) BLDedup.add(dIdx, BLDedup.entryFromFp(fp, { id: p.id, name: p.name })); }
+          if (fp) { var fl = BLDedup.fields(fp); p.hash = fl.hash; p.dh = fl.dh; p.tv = fl.tv; p.w = fl.w; p.h = fl.h; if (dIdx) BLDedup.add(dIdx, BLDedup.entryFromFp(fp, { id: p.id, name: p.name })); }
           P.push(p); PI[p.id] = p; pending.push(p); pullState.added++;
           if (pending.length >= 10) return flushPending();
         }
@@ -908,6 +908,17 @@
     while (i < a.length && j < b.length) { if (a[i] === b[j]) { i++; j++; continue; } if (++e > 1) return false; if (a.length > b.length) i++; else if (a.length < b.length) j++; else { i++; j++; } }
     return e + (a.length - i) + (b.length - j) <= 1;
   }
+  function nameKey(s) { return normName(s).replace(/FI/g, 'H'); }   // FI is often read as H
+  function lev(a, b) {
+    var p = [], i, j; for (j = 0; j <= b.length; j++) p[j] = j;
+    for (i = 1; i <= a.length; i++) { var q = [i]; for (j = 1; j <= b.length; j++) q[j] = Math.min(p[j] + 1, q[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = q; }
+    return p[b.length];
+  }
+  function nameSame(a, b) {
+    var x = nameKey(a), y = nameKey(b), m = Math.min(x.length, y.length);
+    if (m < 4) return x === y && m > 0;
+    return x.indexOf(y) >= 0 || y.indexOf(x) >= 0 || (m >= 5 && lev(x, y) <= 2);
+  }
   function normName(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
   function ensureOcr() { return window.BLOcr ? Promise.resolve() : new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = 'ocr.js'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); }); }
   function bulkLoad(f) {
@@ -934,7 +945,7 @@
   function bulkInterpret(it, v) {
     var ex = it.dt, exT = ex ? ymdT(ex) : null;
     // a temperature only counts from a credible stamp: date and time both read, or the °F and °C agree (noise in a plain photo can look like a number)
-    if (v && v.temp !== null && v.temp !== undefined && ((v.date && v.time) || v.tempSure)) { it.temp = v.temp; it.tempSrc = 'ocr'; }
+    if (v && v.temp !== null && v.temp !== undefined && ((v.date && v.time) || v.tempSure)) { it.temp = v.temp; it.tempSrc = 'ocr'; if (v.tempDisagree && !v.tempSure) it.tempFlag = true; }
     if (v && v.name) it.camText = v.name;
     it.raw = v ? v.raw : '';
     if (v && v.date && v.time) {
@@ -945,8 +956,13 @@
         if (df <= 5 * 60000) it.conf = 'ok';
         else { it.conf = 'check'; it.alt = ex; it.notes = ['Stamp says ' + fmtDate(parseLocal(it.t)) + ' ' + fmtTime(parseLocal(it.t)) + ', the file says ' + fmtDate(parseLocal(ex)) + ' ' + fmtTime(parseLocal(ex)) + '.']; }
       }
+      // the stamp has no seconds: take them from the file (EXIF first, then file date) when the minute is the same
+      var mn = it.t.slice(0, 16);
+      if (ex && ex.length >= 19 && ex.slice(0, 16) === mn) { it.t = ex; it.secKnown = true; }
+      else if (!ex && it.fileT && it.fileT.length >= 19 && it.fileT.slice(0, 16) === mn) { it.t = it.fileT; it.secKnown = true; }
+      if (it.tempFlag) { it.conf = 'check'; bulkNote(it, 'Check the temp.'); }
     } else if (ex) {
-      it.t = ex; it.tsrc = 'exif'; it.conf = 'ok'; bulkNote(it, v && v.time ? 'Stamp date not readable; used the time saved in the photo file.' : 'Used the time saved in the photo file.');
+      it.t = ex; it.tsrc = 'exif'; it.secKnown = ex.length >= 19; it.conf = 'ok'; bulkNote(it, v && v.time ? 'Stamp date not readable; used the time saved in the photo file.' : 'Used the time saved in the photo file.');
     } else {
       it.conf = 'none'; it.partialTime = v && v.time ? v.time : ''; it.partialDate = v && v.date ? v.date : '';
       bulkNote(it, it.noPic ? 'This browser can’t open the picture, and the file has no time.' : 'No readable stamp and no time in the file. Type it below, or leave it for the Stamp Reader.');
@@ -954,14 +970,15 @@
   }
   function bulkFinalize() {
     var b = bulk, items = b.items, timed = items.filter(function (i) { return i.t; }).map(function (i) { return ymdT(i.t); }).sort(function (x, y) { return x - y; });
-    // camera names printed on the stamps: only names seen on 3+ photos count; reads one letter apart are merged
+    // camera names printed on the stamps: reads that are close (H/FI mix-ups, a letter or two off, one inside the other, e.g. FIELD / SW FIELD) are one name; only names seen on 3+ photos count
     var cnt = {}; items.forEach(function (it) { if (it.camText) cnt[it.camText] = (cnt[it.camText] || 0) + 1; });
-    var keys = Object.keys(cnt).sort(function (x, y) { return cnt[y] - cnt[x]; }), canon = {}, tot = {};
-    keys.forEach(function (k) { var m = null; Object.keys(tot).forEach(function (o) { if (!m && Math.min(o.length, k.length) >= 4 && lev1(o, k)) m = o; }); if (m) { tot[m] += cnt[k]; canon[k] = m; } else { tot[k] = cnt[k]; canon[k] = k; } });
+    var keys = Object.keys(cnt).sort(function (x, y) { return cnt[y] - cnt[x] || y.length - x.length; }), canon = {}, tot = {};
+    keys.forEach(function (k) { var m = null; Object.keys(tot).forEach(function (o) { if (!m && nameSame(o, k)) m = o; }); if (m) { tot[m] += cnt[k]; canon[k] = m; } else { tot[k] = cnt[k]; canon[k] = k; } });
     b.names = {}; Object.keys(tot).forEach(function (k) { if (tot[k] >= 3) b.names[k] = tot[k]; });
     items.forEach(function (it) { it.camName = it.camText && b.names[canon[it.camText]] ? canon[it.camText] : ''; });
     Object.keys(b.names).forEach(function (nm) {
-      var n = normName(nm), hits = S.cameras.filter(function (c) { return normName(c.name) === n || String(c.name).toUpperCase().split(/[^A-Z0-9]+/).some(function (wd) { return wd.length >= 4 && wd === n; }); });
+      var hits = S.cameras.filter(function (c) { return nameSame(c.name, nm); });
+      if (hits.length > 1) { var eq = hits.filter(function (c) { return nameKey(c.name) === nameKey(nm); }); hits = eq.length === 1 ? eq : []; }
       if (hits.length === 1) { items.forEach(function (it) { if (it.camName === nm) it.cam = hits[0].id; }); b.names[nm] = { n: tot[nm], cam: hits[0].id }; }
       else b.names[nm] = { n: tot[nm], cam: null };
     });
@@ -987,6 +1004,7 @@
     if (!imgs.length) { bulk.phase = 'review'; bulk.t1 = Date.now(); go('#/bulk'); render(); return; }
     // duplicate = same file name and size already saved (when both know the file's own time, those must match too)
     var seen = {}; P.forEach(function (p) { (seen[p.name + '|' + p.size] = seen[p.name + '|' + p.size] || []).push(p.tsrc === 'exif' ? p.t : null); });
+    var dIdx = window.BLDedup ? BLDedup.buildIndex(P) : null, camReal = cam(bulk.def) ? bulk.def : null;
     if (R.view !== 'bulk') go('#/bulk'); else render();
     requestPersist();
     function prep(f) {
@@ -994,7 +1012,16 @@
         var dt = ex && ex.dt, key = f.name + '|' + f.size, prior = seen[key] || [];
         if (prior.some(function (x) { return x === null || !dt || x === dt; })) return { f: f, dup: true };
         (seen[key] = prior).push(dt || null);
-        return bulkLoad(f).then(function (L) { return { f: f, dt: dt || null, L: L }; });
+        // same bytes as a photo already in the ledger (or earlier in this batch): skip before reading it
+        return (dIdx ? BLDedup.sha256(f) : Promise.resolve('')).then(function (hash) {
+          if (hash && dIdx.hash[hash]) return { f: f, dup: true };
+          if (hash) dIdx.hash[hash] = { id: null, name: f.name };   // later copies in this batch match it
+          return bulkLoad(f).then(function (L) {
+            var o = { f: f, dt: dt || null, L: L, hash: hash, dh: '', w: 0, h: 0 };
+            if (L && dIdx) { o.w = L.img.naturalWidth; o.h = L.img.naturalHeight; o.dh = BLDedup.dhashOf(L.img, o.w, o.h); o.tv = BLDedup.tvOf(L.img, o.w, o.h); }
+            return o;
+          });
+        });
       }, function () { return { f: f, dup: true, err: true }; });
     }
     function upd() {
@@ -1020,7 +1047,15 @@
           if (!L || bulk.stop || !bulk.ocrOk) return null;
           return window.BLOcr.readStamp(L.img, bulk.pos).catch(function () { return null; });
         }).then(function (v) {
-          bulkInterpret(it, v); bulk.items.push(it);
+          bulkInterpret(it, v);
+          if (dIdx && o.hash && dIdx.hash[o.hash] && dIdx.hash[o.hash].id === null) delete dIdx.hash[o.hash];
+          if (dIdx && o.hash) {   // stamp + camera + temp, or a look-alike picture at the same time
+            var st = it.tsrc === 'stamp' && it.t ? { date: it.t.slice(0, 10), time: it.t.slice(11, 19), temp: it.tempFlag ? null : it.temp, name: it.camText } : { temp: it.tempFlag ? null : it.temp, name: it.camText };
+            var fp = BLDedup.build(o.f, o.hash, { dh: o.dh, tv: o.tv, w: o.w, h: o.h }, { exifT: o.dt, camId: camReal, stamp: st, sec: !!it.secKnown, minute: true }), m = BLDedup.match(dIdx, fp);
+            if (m && m.of.id !== null) { bulk.dup++; if (L) { try { URL.revokeObjectURL(L.url); } catch (e) {} L.img.src = ''; if (it.mini) { try { URL.revokeObjectURL(it.mini); } catch (e) {} } } bulk.done++; upd(); return tick().then(loop); }
+            it.fp = fp; BLDedup.add(dIdx, BLDedup.entryFromFp(fp, { id: it.id, name: it.name }));
+          }
+          bulk.items.push(it);
           if (L) { try { URL.revokeObjectURL(L.url); } catch (e) {} L.img.src = ''; }
           bulk.done++; upd(); return tick().then(loop);
         });
@@ -1108,7 +1143,7 @@
     // batch tools
     var camOpts = S.cameras.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + b.newCams.map(function (x) { return '<option value="' + x.key + '">' + esc(x.name) + ' (new)</option>'; }).join('');
     var buckOpts = '<option value="">— none (the Sort Pass will ask) —</option>' + S.deer.map(function (x) { return '<option value="' + esc(x.id) + '">★ ' + esc(x.name) + '</option>'; }).join('') + b.newBucks.map(function (x) { return '<option value="' + x.key + '">★ ' + esc(x.name) + ' (new)</option>'; }).join('');
-    var nm = Object.keys(b.names).filter(function (k) { return !b.names[k].cam && !b.newCams.some(function (x) { return normName(x.name) === normName(k); }); });
+    var nm = Object.keys(b.names).filter(function (k) { return !b.names[k].cam && !b.newCams.some(function (x) { return nameSame(x.name, k); }); });
     h += '<div class="paper" id="bulk-tools"><div class="bsel"><button class="btn sm ink" data-act="bulk-selall">Select all</button><button class="btn sm ink" data-act="bulk-selnone">Select none</button><span class="small muted" id="bulk-selcount">' + selCount() + ' selected</span></div>' +
       '<div class="bgrid"><label class="field"><span>Camera for <b id="bulk-target">' + (selCount() ? 'the selected photos' : 'the whole batch') + '</b></span><select id="bulk-camsel"><option value="">Choose…</option>' + camOpts + '<option value="__new">＋ New camera…</option></select></label>' +
       '<label class="field"><span>Buck for the selected photos <i class="muted">(optional)</i></span><select id="bulk-bucksel"><option value="__keep">Choose…</option>' + buckOpts + '<option value="__new">＋ New buck…</option></select></label></div>' +
@@ -1239,6 +1274,7 @@
       var did = it.deer ? (buckId[it.deer] || (deer(it.deer) ? it.deer : null)) : null;
       var p = { id: it.id, cam: cid, pull: pl.id, name: it.name, size: it.size, t: it.t || null, tsrc: it.t ? (it.tsrc === 'exif' ? 'exif' : it.tsrc === 'file' ? 'file' : 'stamp') : null, fileT: it.fileT, tags: [], deer: did ? [did] : [], done: !!did,
         thumb: it.thumb, added: Date.now(), temp: it.temp, tempSrc: it.temp === null ? null : (it.tempSrc === 'ocr' ? 'ocr' : 'typed') };
+      if (it.fp) { var fl = BLDedup.fields(it.fp); p.hash = fl.hash; p.dh = fl.dh; p.tv = fl.tv; p.w = fl.w; p.h = fl.h; p.stamp = { name: it.fp.camName || '', s: it.secKnown ? 1 : 0 }; }
       out.push(p); pl.count++; if (!p.t) { pl.noTime++; res.noTime++; } else { res.timed++; if (it.tsrc === 'exif') res.exif++; else if (it.typedSrc) res.typed++; else res.stamp++; }
       if (it.temp !== null) res.temps++; if (did) res.assigned++; else res.unsorted++;
     });

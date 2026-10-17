@@ -67,10 +67,16 @@
     var s = Math.min(1, 640 / r.w), w = Math.max(1, Math.round(r.w * s)), h = Math.max(1, Math.round(r.h * s));
     var c = document.createElement('canvas'); c.width = w; c.height = h; var g = c.getContext('2d'); g.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, w, h);
     var d = g.getImageData(0, 0, w, h).data;
-    function kind(y) { var dk = 0, lt = 0, n = 0; for (var x = 0; x < w; x += 2) { var l = lum(d, (y * w + x) * 4); if (l < 40) dk++; else if (l > 215) lt++; n++; } return dk / n > 0.6 ? 'd' : lt / n > 0.6 ? 'l' : ''; }
-    var y = where === 'top' ? 0 : h - 1, step = where === 'top' ? 1 : -1, k0 = kind(y), run = 0;
+    // text rows are only ~55-65% dark (the letters are bright), so a row counts when 40% of it is dark; a 2-row gap is tolerated
+    function kind(y) { var dk = 0, lt = 0, n = 0; for (var x = 0; x < w; x += 2) { var l = lum(d, (y * w + x) * 4); if (l < 40) dk++; else if (l > 215) lt++; n++; } return dk / n > 0.4 ? 'd' : lt / n > 0.6 ? 'l' : ''; }
+    var y = where === 'top' ? 0 : h - 1, step = where === 'top' ? 1 : -1, k0 = kind(y), run = 0, good = 0, gap = 0, cap = h * 0.25;
     if (!k0) return null;
-    while (y >= 0 && y < h && run < h * 0.25 && kind(y) === k0) { y += step; run++; }
+    while (y >= 0 && y < h && run < cap) {
+      if (kind(y) === k0) { gap = 0; good = run + 1; } else if (++gap > 2) break;
+      y += step; run++;
+    }
+    if (run >= cap) return null;   // dark all the way to the cap: that is the picture, not a ribbon
+    run = good;
     if (run < 5) return null;
     return Math.round(run / s);
   }
@@ -81,13 +87,14 @@
     return th;
   }
   // black-on-white canvas of the stamp band, text about 35-40 px tall
-  function stampCanvas(img, r, where, target) {
+  function stampCanvas(img, r, where, target, x0) {
     var rb = ribbon(img, r, where), bh = rb || Math.max(24, Math.round(r.h * 0.08)), onPhoto = !rb;
-    var sc = Math.max(0.35, Math.min(3, (target || 72) / bh)); if (r.w * sc > 2400) sc = 2400 / r.w;
-    var pad = 12, cw = Math.round(r.w * sc), ch = Math.round(bh * sc);
+    var xs = x0 ? Math.round(r.w * x0) : 0, sw = r.w - xs;   // x0: skip the left part (logo) of the band
+    var sc = Math.max(0.35, Math.min(3, (target || 72) / bh)); if (sw * sc > 2400) sc = 2400 / sw;
+    var pad = 12, cw = Math.round(sw * sc), ch = Math.round(bh * sc);
     var c = document.createElement('canvas'); c.width = cw + pad * 2; c.height = ch + pad * 2; var g = c.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high';
-    g.drawImage(img, r.x, where === 'top' ? r.y : r.y + r.h - bh, r.w, bh, pad, pad, cw, ch);
+    g.drawImage(img, r.x + xs, where === 'top' ? r.y : r.y + r.h - bh, sw, bh, pad, pad, cw, ch);
     var id = g.getImageData(pad, pad, cw, ch), p = id.data, hist = new Array(256).fill(0), n = cw * ch, i;
     for (i = 0; i < p.length; i += 4) hist[Math.round(lum(p, i))]++;
     var th = otsu(hist, n), hi = 0; for (i = 0; i < 256; i++) if (i > th) hi += hist[i];
@@ -127,7 +134,7 @@
     var tp = parse(raw.replace(/\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b/g, ' ').replace(/\b\d{1,2}[:.;]\d{2}([:.;]\d{2})?\b/g, ' '));
     if (tp) { out.temp = tp.f; out.tempSure = tp.sure; }
     // camera name: a run of letters (with digits allowed inside), at least 3 characters, not AM / PM / unit letters
-    var names = rest.filter(function (t) { var L = t.replace(/[^A-Z0-9]/g, ''); return L.length >= 3 && /[A-Z]{2}/.test(L) && !/^(AM|PM)$/.test(L) && !/^\d/.test(L) && !/^[A-Z]?\d{1,3}[FC]?$/.test(L); });
+    var names = rest.filter(function (t) { var L = t.replace(/[^A-Z0-9]/g, ''); if (/^[A-Z]{0,2}(STEALTH|TEALTH|STEAL|EALTHCAM|ALTHCAM|LTHCAM|THCAM|HCAM)|^[A-Z]{0,3}CAM$/.test(L)) return false; return L.length >= 3 && /[A-Z]{2}/.test(L) && !/^(AM|PM)$/.test(L) && !/^\d/.test(L) && !/^[A-Z]?\d{1,3}[FC]?$/.test(L); });
     out.name = names.slice(0, 2).join(' ').replace(/[^A-Z0-9 ]/g, '').slice(0, 24);
     return out;
   }
@@ -136,6 +143,27 @@
   function mode3(list) {   // most frequent value (first seen wins ties); returns [value, votes]
     var cnt = {}, best = null, bn = 0; list.forEach(function (v) { if (v) cnt[v] = (cnt[v] || 0) + 1; });
     list.forEach(function (v) { if (v && cnt[v] > bn) { best = v; bn = cnt[v]; } }); return [best, bn];
+  }
+  // Second, independent look at the temperature only: the digits are cut out of the band and read again on their own at a bigger size.
+  // A different answer flags the temperature (v.tempDisagree) so it lands in 'needs a look'.
+  function tempPass(w, cv, r0, v) {
+    if (v.temp === null || !r0 || !r0.words) return Promise.resolve(v);
+    var t = String(v.temp), hit = null;
+    r0.words.forEach(function (wd) { var tx = String(wd.text || ''); if (!hit && wd.bbox && tx.replace(/[^0-9]/g, '').indexOf(t) >= 0 && /[°F]/.test(tx.toUpperCase().replace(/O/g, '°'))) hit = wd.bbox; });
+    if (!hit) return Promise.resolve(v);
+    var pad = Math.round((hit.y1 - hit.y0) * 0.3), x0 = Math.max(0, hit.x0 - pad), y0 = Math.max(0, hit.y0 - pad), x1 = Math.min(cv.width, hit.x1 + pad), y1 = Math.min(cv.height, hit.y1 + pad);
+    var sw = x1 - x0, sh = y1 - y0; if (sw < 4 || sh < 4) return Promise.resolve(v);
+    var sc = Math.max(1, Math.min(4, 90 / sh)), m = 20, c = document.createElement('canvas'); c.width = Math.round(sw * sc) + m * 2; c.height = Math.round(sh * sc) + m * 2;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high'; g.drawImage(cv, x0, y0, sw, sh, m, m, Math.round(sw * sc), Math.round(sh * sc));
+    return setMode(w, 'temp').then(function () { return w.recognize(c); }).then(function (o) {
+      var p = parse(o.data.text); v.temp2 = p ? p.f : null;
+      if (p && p.f !== v.temp && !v.tempSure) v.tempDisagree = true;
+      return setMode(w, 'stamp');
+    }).then(function () { return v; }, function () { return setMode(w, 'stamp').then(function () { return v; }, function () { return v; }); });
+  }
+  function wordsOf(d) {   // tesseract.js 7 gives words inside blocks > paragraphs > lines
+    if (d.words && d.words.length) return d.words;
+    var out = []; (d.blocks || []).forEach(function (b) { (b.paragraphs || []).forEach(function (p) { (p.lines || []).forEach(function (l) { (l.words || []).forEach(function (wd) { out.push(wd); }); }); }); }); return out;
   }
   function readStamp(img, pos) {
     return getWorker().then(function (w) {
@@ -148,12 +176,12 @@
           var sizes = [72, 56, 96], reads = [], k = 0, cvs = [];
           function one() {
             var cv = stampCanvas(img, rect, where, sizes[k++]); cvs.push(cv);
-            return w.recognize(cv).then(function (o) { var v = parseStamp(o.data.text); v.conf = o.data.confidence; reads.push(v); });
+            return w.recognize(cv, {}, { blocks: true }).then(function (o) { var v = parseStamp(o.data.text); v.conf = o.data.confidence; v.words = wordsOf(o.data); reads.push(v); });
           }
           function more() {
             if (reads.length < 2) return one().then(more);
             var a = reads[0], b = reads[1];
-            if (reads.length === 2 && (a.date !== b.date || a.time !== b.time)) return one().then(more);
+            if (reads.length === 2 && (a.date !== b.date || a.time !== b.time || a.temp !== b.temp)) return one().then(more);
             return null;
           }
           return one().then(more).then(function () {
@@ -161,10 +189,12 @@
             var r0 = reads[0], conf = reads.reduce(function (m, v) { return Math.max(m, v.conf || 0); }, 0);
             var v = { date: d[0], time: t[0], temp: f[0] === null ? null : Number(f[0]), dateVotes: d[1], timeVotes: t[1], reads: reads.length, band: where, conf: conf, trimmed: !!rect.trimmed, ribbon: !!cvs[0].__ribbon, raw: r0.raw, name: '' };
             v.agreed = !!(v.date && v.time && d[1] >= 2 && t[1] >= 2);
+            var tv = {}; reads.forEach(function (r) { if (r.temp !== null) tv[r.temp] = 1; });
+            v.tempVotes = f[1]; v.tempDisagree = Object.keys(tv).length > 1 || (reads.length > 1 && f[1] < 2 && Object.keys(tv).length === 1 && reads.some(function (r) { return r.temp === null; }));
             var sure = reads.some(function (r) { return r.tempSure; }); v.tempSure = sure;
             v.score = (v.date ? 2 : 0) + (v.time ? 2 : 0) + (v.temp !== null ? 1 : 0) + (v.agreed ? 1 : 0);
-            v._cv = cvs[0];
-            return v;
+            v._cv = cvs[0]; v._rect = rect;
+            return tempPass(w, cvs[0], reads[0], v);
           });
         }
         var fullTried = false;
@@ -183,9 +213,11 @@
         }
         return nextBand().then(function (v) {
           if (!v) return v;
-          var cv = v._cv; delete v._cv;
-          if (v.date && v.time) {   // second look at the same band with letters allowed, only for the camera name
-            return setMode(w, 'name').then(function () { return w.recognize(cv); }).then(function (o2) { v.name = parseStamp(o2.data.text).name; return setMode(w, 'stamp'); }).then(function () { return v; }, function () { return v; });
+          var cv = v._cv, rc = v._rect; delete v._cv; delete v._rect;
+          if (v.date && v.time) {   // second look at the same band with letters allowed, only for the camera name: first the right part (no logo), then the whole band
+            var nm = '';
+            return setMode(w, 'name').then(function () { return w.recognize(stampCanvas(img, rc, v.band, 72, 0.4)); }).then(function (o2) { nm = parseStamp(o2.data.text).name; if (nm) return null; return w.recognize(cv).then(function (o3) { nm = parseStamp(o3.data.text).name; }); })
+              .then(function () { v.name = nm; return setMode(w, 'stamp'); }).then(function () { return v; }, function () { return setMode(w, 'stamp').then(function () { return v; }, function () { return v; }); });
           }
           return v;
         });
